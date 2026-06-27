@@ -1,0 +1,114 @@
+/*
+ * Google Fonts import for Inter.
+ * Must come before @import "tailwindcss" per CSS spec.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+/*
+ * Cube Count — Design System Tokens
+ *
+ * These custom properties implement the approved design system.
+ * All components should reference these tokens rather than
+ * hardcoding colors, fonts, or spacing values.
+ */
+
+@theme {
+  /* Colors — from DESIGN_SYSTEM.md */
+  --color-background: #FFFFFF;
+  --color-background-secondary: #F7F7F7;
+  --color-primary: #222222;
+  --color-secondary: #666666;
+  --color-accent: #B8FF2C;
+  --color-outline: #111111;
+  --color-border: #DDDDDD;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-disabled: #CCCCCC;
+
+  /* Typography — approved font stack */
+  --font-sans: 'Inter', 'Manrope', system-ui, -apple-system, sans-serif;
+
+  /* Spacing follows an 8-point grid: 4, 8, 16, 24, 32, 40, 48, 64, 80 */
+
+  /* Border radii — from DESIGN_SYSTEM.md */
+  --radius-button: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+  --radius-dialog: 24px;
+
+  /* Shadows — soft and minimal */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.10);
+
+  /* Animation durations — from DESIGN_SYSTEM.md */
+  --duration-micro: 100ms;
+  --duration-hover: 150ms;
+  --duration-panel: 200ms;
+  --duration-screen: 250ms;
+  --duration-puzzle: 300ms;
+}
+
+/*
+ * Base element resets
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background-secondary);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+}
+
+/*
+ * Reduced motion support — respect OS preferences
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Gameplay animations
+ *
+ * Puzzle fade-in:  used when a new puzzle renders in DISPLAYING_PUZZLE.
+ * Panel fade-in:   used for the answer panel appearing in ANSWER_PHASE.
+ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-puzzle) ease-out both;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--duration-panel) ease-out both;
+}
