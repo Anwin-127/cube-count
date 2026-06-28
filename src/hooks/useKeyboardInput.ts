@@ -37,7 +37,10 @@ export function useKeyboardInput(): void {
             store.incrementAnswer('player1', 10);
             break;
           case InputAction.PLAYER1_DECREMENT:
-            store.decrementAnswer('player1');
+            store.decrementAnswer('player1', 1);
+            break;
+          case InputAction.PLAYER1_DECREMENT_TEN:
+            store.decrementAnswer('player1', 10);
             break;
           case InputAction.PLAYER1_SUBMIT:
             store.submitAnswer('player1');
@@ -49,7 +52,10 @@ export function useKeyboardInput(): void {
             store.incrementAnswer('player2', 10);
             break;
           case InputAction.PLAYER2_DECREMENT:
-            store.decrementAnswer('player2');
+            store.decrementAnswer('player2', 1);
+            break;
+          case InputAction.PLAYER2_DECREMENT_TEN:
+            store.decrementAnswer('player2', 10);
             break;
           case InputAction.PLAYER2_SUBMIT:
             store.submitAnswer('player2');

@@ -9,6 +9,8 @@ export interface PlayerStatistics {
   incorrectAnswers: number;
   totalRecordedTime: number;
   fastestCorrectAnswer: number | null;
+  averageResponseTime: number | null;
+  roundWins: number;
 }
 
 /**

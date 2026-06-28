@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { GamePhase } from '../models/GamePhase';
 import { GameMode } from '../models/GameMode';
+import { Difficulty } from '../models/Difficulty';
 import type { GameConfig } from '../models/GameConfig';
 import type { PlayerState, PlayerId } from '../models/Player';
 import { createInitialPlayerState } from '../models/Player';
@@ -26,6 +27,7 @@ import {
   getNextDifficultyLevel,
   DIFFICULTY_PROGRESSION_THRESHOLD,
 } from '../engine';
+import { generateSeed } from '../puzzle';
 import * as AnswerManager from '../engine/AnswerManager';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +84,8 @@ export interface GameActions {
   tick: (now: number) => void;
   /** Continue from ROUND_RESULTS to next round or FINAL_RESULTS. */
   continueFromResults: () => void;
+  /** Continue from FINAL_RESULTS (start new match with same or new seed). */
+  continueFromFinalResults: (replaySameSeed: boolean) => void;
   /** Reset all state and return to HOME. */
   resetToHome: () => void;
   /** Navigate to SETTINGS from HOME or FINAL_RESULTS. */
@@ -91,7 +95,7 @@ export interface GameActions {
 
   // -- Player actions --
   incrementAnswer: (playerId: PlayerId, amount?: number) => void;
-  decrementAnswer: (playerId: PlayerId) => void;
+  decrementAnswer: (playerId: PlayerId, amount?: number) => void;
   submitAnswer: (playerId: PlayerId) => void;
 }
 
@@ -146,9 +150,13 @@ export const useGameStore = create<GameStore>()(
         const { config, phase } = get();
         const newPhase = transition(phase, GamePhase.GENERATING_PUZZLE);
 
+        // Ensure we have an initial seed for the match (enables replay)
+        const initialSeed = config.puzzleSeed ?? generateSeed();
+        const activeConfig = { ...config, puzzleSeed: initialSeed };
+
         // Create players
         const players: PlayerState[] =
-          config.gameMode === GameMode.LOCAL_MULTIPLAYER
+          activeConfig.gameMode === GameMode.LOCAL_MULTIPLAYER
             ? [
                 createInitialPlayerState('player1'),
                 createInitialPlayerState('player2'),
@@ -161,7 +169,7 @@ export const useGameStore = create<GameStore>()(
         const matchStatistics = isMultiplayer
           ? createMatchStats(
               players.map((p) => p.id),
-              config.numberOfRounds,
+              activeConfig.numberOfRounds,
             )
           : null;
         const practiceStatistics = !isMultiplayer
@@ -169,12 +177,13 @@ export const useGameStore = create<GameStore>()(
           : null;
 
         // Generate puzzle for round 1
-        const puzzle = generatePuzzleForRound(config, 1);
-        const displayDuration = getDisplayTimeForCurrentRound(config, 1);
+        const puzzle = generatePuzzleForRound(activeConfig, 1);
+        const displayDuration = getDisplayTimeForCurrentRound(activeConfig, 1);
 
         set(
           {
             phase: newPhase,
+            config: activeConfig,
             currentRound: 1,
             currentPuzzle: puzzle,
             players,
@@ -313,7 +322,8 @@ export const useGameStore = create<GameStore>()(
               if (shouldAdvance) {
                 const nextDifficulty = getNextDifficultyLevel(config.difficulty);
                 if (nextDifficulty !== config.difficulty) {
-                  config = { ...config, difficulty: nextDifficulty };
+                  const newDisplayTime = nextDifficulty === Difficulty.EASY ? 5 : nextDifficulty === Difficulty.MEDIUM ? 3 : 2;
+                  config = { ...config, difficulty: nextDifficulty, initialDisplayTime: Math.min(config.initialDisplayTime, newDisplayTime) };
                   difficultyJustAdvanced = true;
                 }
               }
@@ -360,7 +370,7 @@ export const useGameStore = create<GameStore>()(
         if (state.phase !== GamePhase.ROUND_RESULTS) return;
 
         // Check if this was the last round
-        if (isLastRound(state.config, state.currentRound)) {
+        if (isLastRound(state.config, state.currentRound, state.matchStatistics)) {
           set(
             {
               phase: transition(
@@ -405,6 +415,22 @@ export const useGameStore = create<GameStore>()(
         );
       },
 
+      continueFromFinalResults: (replaySameSeed: boolean) => {
+        const state = get();
+        if (state.phase !== GamePhase.FINAL_RESULTS) return;
+        
+        let newConfig = state.config;
+        if (!replaySameSeed) {
+           // Ensure it generates a new random seed
+           newConfig = { ...state.config, puzzleSeed: undefined };
+        } else if (replaySameSeed && state.currentPuzzle) {
+           newConfig = { ...state.config, puzzleSeed: state.currentPuzzle.metadata.seed };
+        }
+        
+        set({ config: newConfig }, false, 'continueFromFinalResults:setConfig');
+        get().startMatch();
+      },
+
       resetToHome: () =>
         set(createInitialState(), false, 'resetToHome'),
 
@@ -438,11 +464,11 @@ export const useGameStore = create<GameStore>()(
         );
       },
 
-      decrementAnswer: (playerId) => {
+      decrementAnswer: (playerId, amount = 1) => {
         const { phase, players } = get();
         if (phase !== GamePhase.ANSWER_PHASE) return;
         set(
-          { players: AnswerManager.decrementAnswer(players, playerId) },
+          { players: AnswerManager.decrementAnswer(players, playerId, amount) },
           false,
           'decrementAnswer',
         );

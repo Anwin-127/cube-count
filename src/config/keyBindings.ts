@@ -23,14 +23,16 @@ export type KeyBindings = Readonly<Record<string, InputAction>>;
  * These defaults are configurable through GameConfig in future versions.
  */
 export const DEFAULT_KEY_BINDINGS: KeyBindings = {
-  KeyW: InputAction.PLAYER1_INCREMENT_TEN,
-  KeyA: InputAction.PLAYER1_INCREMENT,
+  KeyW: InputAction.PLAYER1_INCREMENT,
+  KeyA: InputAction.PLAYER1_DECREMENT_TEN,
   KeyS: InputAction.PLAYER1_DECREMENT,
+  KeyD: InputAction.PLAYER1_INCREMENT_TEN,
   ShiftLeft: InputAction.PLAYER1_SUBMIT,
 
-  KeyO: InputAction.PLAYER2_INCREMENT_TEN,
-  KeyL: InputAction.PLAYER2_INCREMENT,
-  KeyK: InputAction.PLAYER2_DECREMENT,
+  ArrowUp: InputAction.PLAYER2_INCREMENT,
+  ArrowLeft: InputAction.PLAYER2_DECREMENT_TEN,
+  ArrowDown: InputAction.PLAYER2_DECREMENT,
+  ArrowRight: InputAction.PLAYER2_INCREMENT_TEN,
   ShiftRight: InputAction.PLAYER2_SUBMIT,
 
   Space: InputAction.CONTINUE,

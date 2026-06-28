@@ -64,9 +64,11 @@ export class CanvasRenderer implements PuzzleRenderer {
     const startTime = performance.now();
 
     // ── 1. Calculate natural scene dimensions ──────────────────────
+    // We use a fixed absolute max height of 4 to ensure the scaling (zoom)
+    // and centering remains perfectly stable across all puzzles, regardless of their actual height.
     const natural = calculateCanvasSize(
       puzzle.boardSize,
-      puzzle.maximumHeight,
+      4, // Absolute maximum possible stack height
       this.config,
     );
 
@@ -129,6 +131,36 @@ export class CanvasRenderer implements PuzzleRenderer {
     ctx.strokeStyle = CUBE_COLORS.outline;
     ctx.lineWidth = OUTLINE_WIDTH / scale; // Keep outline 1px regardless of scale
     ctx.lineJoin = 'round';
+
+    // ── 8.5. Draw isometric floor grid ────────────────────────────
+    ctx.strokeStyle = '#94A3B8'; // Slate-400 for better visibility on white
+    ctx.lineWidth = Math.max(1, 2 / scale); // Consistent low visual weight
+    ctx.beginPath();
+    
+    // Restrict grid to exactly the 5x5 board footprint
+    const minG = -0.5;
+    const maxG = puzzle.boardSize - 0.5;
+
+    // Draw lines along the 'col' axis
+    for (let c = minG; c <= maxG; c += 1) {
+      const start = gridToScreen(c, minG, -1, natural.originX, natural.originY, this.config);
+      const end = gridToScreen(c, maxG, -1, natural.originX, natural.originY, this.config);
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+    }
+
+    // Draw lines along the 'row' axis
+    for (let r = minG; r <= maxG; r += 1) {
+      const start = gridToScreen(minG, r, -1, natural.originX, natural.originY, this.config);
+      const end = gridToScreen(maxG, r, -1, natural.originX, natural.originY, this.config);
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+    }
+    ctx.stroke();
+
+    // Reset stroke style for cubes
+    ctx.strokeStyle = CUBE_COLORS.outline;
+    ctx.lineWidth = OUTLINE_WIDTH / scale;
 
     // ── 9. Draw cubes in painter's algorithm order ───────────────
     let cubeCount = 0;

@@ -87,15 +87,19 @@ export function calculateCanvasSize(
   const padding = 20;
 
   // The isometric grid spans:
-  // Horizontal: boardSize * tileWidth (half left, half right of center)
-  // Vertical: boardSize * tileHeight + maxHeight * cubeHeight
-  const width = boardSize * tileWidth + padding * 2;
+  // Horizontal: (boardSize + 2) * tileWidth (half left, half right of center)
+  // Vertical: (boardSize + 2) * tileHeight + maxHeight * cubeHeight + 1 floor cubeHeight
+  const gridExtension = 0; // Exactly 5x5 grid footprint
+  const floorDepth = 1; // Floor is at stackIndex = -1
+  
+  const width = (boardSize + gridExtension * 2) * tileWidth + padding * 2;
   const height =
-    boardSize * tileHeight + maxHeight * cubeHeight + padding * 2;
+    (boardSize + gridExtension * 2) * tileHeight + (maxHeight + floorDepth) * cubeHeight + padding * 2;
 
   // Origin is the top-center of the grid: first cell (0,0) maps here.
+  // The grid extends upwards by `gridExtension * tileHeight`.
   const originX = width / 2;
-  const originY = padding + maxHeight * cubeHeight;
+  const originY = padding + maxHeight * cubeHeight + gridExtension * tileHeight;
 
   return { width, height, originX, originY };
 }

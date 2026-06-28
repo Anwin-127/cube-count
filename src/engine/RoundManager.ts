@@ -5,6 +5,8 @@ import { Difficulty } from '../models/Difficulty';
 import { createPuzzle, generateSeed } from '../puzzle';
 import { DIFFICULTY_MAX_HEIGHTS } from '../config/constants';
 import { getDisplayTimeForRound } from './TimerManager';
+import type { MatchStatistics } from '../models/MatchStatistics';
+import { determineMatchWinner } from './StatisticsManager';
 
 /**
  * Number of correct answers required to advance to the next
@@ -27,10 +29,13 @@ export function generatePuzzleForRound(
     ? config.puzzleSeed + round
     : generateSeed();
 
+  const isEarlyRound = round <= 5;
+  const maxHeight = isEarlyRound ? 1 : DIFFICULTY_MAX_HEIGHTS[config.difficulty];
+
   return createPuzzle({
     seed,
     difficulty: config.difficulty,
-    maxHeight: DIFFICULTY_MAX_HEIGHTS[config.difficulty],
+    maxHeight,
   });
 }
 
@@ -53,9 +58,22 @@ export function getDisplayTimeForCurrentRound(
  *
  * Practice mode never ends — always returns false.
  */
-export function isLastRound(config: GameConfig, currentRound: number): boolean {
+export function isLastRound(
+  config: GameConfig,
+  currentRound: number,
+  stats?: MatchStatistics | null,
+): boolean {
   if (config.gameMode === GameMode.PRACTICE) return false;
-  return currentRound >= config.numberOfRounds;
+  if (currentRound < config.numberOfRounds) return false;
+  
+  if (stats && currentRound >= config.numberOfRounds) {
+    const winner = determineMatchWinner(stats);
+    if (winner === 'DRAW') {
+      return false; // Sudden death
+    }
+  }
+
+  return true;
 }
 
 /**

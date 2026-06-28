@@ -72,4 +72,4 @@ export const MIN_SCENE_PADDING = 24;
 /**
  * Maximum scale factor to prevent oversized rendering.
  */
-export const MAX_SCALE_FACTOR = 2.5;
+export const MAX_SCALE_FACTOR = 4.0;

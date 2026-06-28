@@ -32,34 +32,34 @@ export function HomeScreen() {
           {/* Stylised cube mark */}
           <IsoCubeMark />
         </div>
-        <h1 className="text-5xl font-bold text-gray-900 tracking-tight leading-none">
+        <h1 className="text-5xl font-bold text-black tracking-tight leading-none uppercase">
           Cube Count
         </h1>
-        <p className="mt-3 text-base text-gray-400">
+        <p className="mt-4 text-base text-gray-500 font-medium tracking-wide">
           Train your spatial reasoning
         </p>
       </div>
 
       {/* Main actions */}
-      <div className="flex flex-col gap-3 w-full max-w-xs">
+      <div className="flex flex-col gap-4 w-full max-w-xs mt-4">
         <button
           id="btn-practice"
           onClick={handlePractice}
-          className="w-full bg-gray-900 text-white font-semibold py-4 rounded-xl hover:bg-gray-700 active:scale-95 transition-all duration-150 text-base"
+          className="geo-button w-full py-4 text-lg"
         >
-          Practice
+          PRACTICE
         </button>
         <button
           id="btn-play"
           onClick={handlePlay}
-          className="w-full bg-white border border-gray-200 text-gray-700 font-semibold py-4 rounded-xl hover:bg-gray-50 active:scale-95 transition-all duration-150 text-base"
+          className="geo-button-secondary w-full py-4 text-lg"
         >
-          Play
+          PLAY
         </button>
       </div>
 
       {/* How to play — brief */}
-      <div className="text-center text-xs text-gray-400 max-w-xs leading-relaxed">
+      <div className="text-center text-xs text-gray-500 max-w-xs leading-relaxed mt-4">
         You'll see a 3D structure of cubes for a few seconds.
         Then count how many cubes are in the structure — including the hidden ones.
       </div>
@@ -107,17 +107,17 @@ function IsoCubeMark() {
       {/* Top face */}
       <path
         d="M24 4 L44 16 L24 28 L4 16 Z"
-        fill="#222222"
+        fill="#B8FF2C"
       />
       {/* Left face */}
       <path
         d="M4 16 L24 28 L24 44 L4 32 Z"
-        fill="#555555"
+        fill="#98D622"
       />
       {/* Right face */}
       <path
         d="M44 16 L24 28 L24 44 L44 32 Z"
-        fill="#888888"
+        fill="#77B011"
       />
     </svg>
   );

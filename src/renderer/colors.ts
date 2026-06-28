@@ -15,16 +15,16 @@ export const CUBE_COLORS = {
   right: '#8FBF23',
   /** Left face — deepest shadow. */
   left: '#6E921A',
-  /** Thin outline between faces. */
-  outline: '#4A6110',
+  /** Thick black outline between faces for arcade style. */
+  outline: '#000000',
 } as const;
 
 /**
  * Background color for the renderer canvas.
  */
-export const RENDERER_BG = '#F7F7F7';
+export const RENDERER_BG = '#FFFFFF';
 
 /**
  * Outline width in pixels.
  */
-export const OUTLINE_WIDTH = 1;
+export const OUTLINE_WIDTH = 2;

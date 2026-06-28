@@ -26,12 +26,13 @@ export function incrementAnswer(
 export function decrementAnswer(
   players: readonly PlayerState[],
   playerId: PlayerId,
+  amount: number = 1,
 ): PlayerState[] {
   return players.map((p) =>
     p.id === playerId && !p.hasSubmitted
       ? {
           ...p,
-          currentAnswer: Math.max(MIN_ANSWER_VALUE, p.currentAnswer - 1),
+          currentAnswer: Math.max(MIN_ANSWER_VALUE, p.currentAnswer - amount),
         }
       : { ...p },
   );

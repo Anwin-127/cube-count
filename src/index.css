@@ -1,59 +1,36 @@
 /*
- * Google Fonts import for Inter.
- * Must come before @import "tailwindcss" per CSS spec.
+ * Cube Count — Final Production Polish
+ * Arcade Geometric Design System
  */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
-/*
- * Cube Count — Design System Tokens
- *
- * These custom properties implement the approved design system.
- * All components should reference these tokens rather than
- * hardcoding colors, fonts, or spacing values.
- */
-
 @theme {
-  /* Colors — from DESIGN_SYSTEM.md */
+  /* Colors */
   --color-background: #FFFFFF;
   --color-background-secondary: #F7F7F7;
-  --color-primary: #222222;
-  --color-secondary: #666666;
-  --color-accent: #B8FF2C;
-  --color-outline: #111111;
-  --color-border: #DDDDDD;
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-  --color-disabled: #CCCCCC;
+  --color-primary: #B8FF2C; /* Fluorescent green */
+  --color-secondary: #000000; /* Pure black */
+  --color-text: #000000; /* Black */
+  --color-text-dark: #000000; /* Black text for green backgrounds */
+  
+  --color-error: #EF4444; /* Red for errors only */
+  --color-warning: #F59E0B; /* Amber for low time warning */
+  --color-disabled: #555555; /* Neutral gray for disabled */
+  
+  /* Typography */
+  --font-sans: 'Roboto Mono', monospace;
 
-  /* Typography — approved font stack */
-  --font-sans: 'Inter', 'Manrope', system-ui, -apple-system, sans-serif;
-
-  /* Spacing follows an 8-point grid: 4, 8, 16, 24, 32, 40, 48, 64, 80 */
-
-  /* Border radii — from DESIGN_SYSTEM.md */
-  --radius-button: 12px;
-  --radius-card: 16px;
-  --radius-panel: 20px;
-  --radius-dialog: 24px;
-
-  /* Shadows — soft and minimal */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.10);
-
-  /* Animation durations — from DESIGN_SYSTEM.md */
+  /* Animation durations */
   --duration-micro: 100ms;
   --duration-hover: 150ms;
   --duration-panel: 200ms;
   --duration-screen: 250ms;
-  --duration-puzzle: 300ms;
+  --duration-puzzle: 150ms; /* Fast arcade puzzle fade */
 }
 
-/*
- * Base element resets
- */
+/* Base resets */
 *,
 *::before,
 *::after {
@@ -67,14 +44,11 @@ html {
 
 body {
   margin: 0;
-  background-color: var(--color-background-secondary);
-  color: var(--color-primary);
+  background-color: var(--color-background);
+  color: var(--color-text);
   font-family: var(--font-sans);
 }
 
-/*
- * Reduced motion support — respect OS preferences
- */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -84,14 +58,182 @@ body {
   }
 }
 
+/* 
+ * Geometric UI Components
+ * 
+ * Uses an offset shadow effect created via a pseudo-element.
+ * - Solid black border.
+ * - Solid black offset block behind the main element.
+ */
+
+/* 
+ * 1. Base Panel
+ * Fluorescent green panel with black offset.
+ */
+.geo-panel {
+  position: relative;
+  background-color: var(--color-primary);
+  color: var(--color-text-dark);
+  border: 2px solid var(--color-secondary);
+  border-radius: 0;
+}
+
+.geo-panel::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: -6px;
+  bottom: -6px;
+  background-color: var(--color-secondary);
+  z-index: -1;
+  border-radius: 0;
+  transition: all var(--duration-micro) ease-out;
+}
+
+/* 
+ * 2. Secondary Panel
+ * White or light gray panel with black offset, used for contrast areas.
+ */
+.geo-panel-light {
+  position: relative;
+  background-color: #FFFFFF;
+  color: var(--color-text-dark);
+  border: 2px solid var(--color-secondary);
+  border-radius: 0;
+}
+
+.geo-panel-light::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: -6px;
+  bottom: -6px;
+  background-color: var(--color-secondary);
+  z-index: -1;
+  border-radius: 0;
+  transition: all var(--duration-micro) ease-out;
+}
+
+/* 
+ * 3. Base Button 
+ * Tactile arcade button.
+ */
+.geo-button {
+  position: relative;
+  background-color: var(--color-primary);
+  color: var(--color-text-dark);
+  border: 2px solid var(--color-secondary);
+  border-radius: 0;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--duration-micro) ease-out, background-color var(--duration-hover) ease-out;
+  outline: none;
+}
+
+.geo-button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-secondary);
+  z-index: -1;
+  transform: translate(6px, 6px);
+  transition: transform var(--duration-micro) ease-out;
+}
+
+/* Button hover feedback */
+.geo-button:hover:not(:disabled) {
+  background-color: #A3E622; /* Slightly darker green */
+}
+
+/* Button press feedback */
+.geo-button:active:not(:disabled) {
+  transform: translate(6px, 6px);
+}
+
+.geo-button:active:not(:disabled)::after {
+  transform: translate(0px, 0px);
+}
+
+/* Focus visibility for accessibility */
+.geo-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 8px;
+}
+
+/* Disabled button */
+.geo-button:disabled {
+  background-color: var(--color-background-secondary);
+  color: var(--color-disabled);
+  border-color: var(--color-disabled);
+  cursor: not-allowed;
+}
+.geo-button:disabled::after {
+  background-color: var(--color-disabled);
+}
+
+
+/* 
+ * 4. Secondary Button 
+ * Light button for secondary actions.
+ */
+.geo-button-secondary {
+  position: relative;
+  background-color: #FFFFFF;
+  color: var(--color-text-dark);
+  border: 2px solid var(--color-secondary);
+  border-radius: 0;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--duration-micro) ease-out, background-color var(--duration-hover) ease-out;
+  outline: none;
+}
+
+.geo-button-secondary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-secondary);
+  z-index: -1;
+  transform: translate(4px, 4px);
+  transition: transform var(--duration-micro) ease-out;
+}
+
+.geo-button-secondary:hover:not(:disabled) {
+  background-color: #F0F0F0;
+}
+
+.geo-button-secondary:active:not(:disabled) {
+  transform: translate(4px, 4px);
+}
+
+.geo-button-secondary:active:not(:disabled)::after {
+  transform: translate(0px, 0px);
+}
+
+.geo-button-secondary:disabled {
+  background-color: var(--color-background-secondary);
+  color: var(--color-disabled);
+  border-color: var(--color-disabled);
+  cursor: not-allowed;
+}
+.geo-button-secondary:disabled::after {
+  background-color: var(--color-disabled);
+}
+
+
 /*
  * Gameplay animations
- *
- * Puzzle fade-in:  used when a new puzzle renders in DISPLAYING_PUZZLE.
- * Panel fade-in:   used for the answer panel appearing in ANSWER_PHASE.
  */
 @keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.97); }
+  from { opacity: 0; transform: scale(0.98); }
   to   { opacity: 1; transform: scale(1); }
 }
 

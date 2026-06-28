@@ -1,22 +1,12 @@
 import { useGameStore } from '../store/gameStore';
 import { GameMode } from '../models/GameMode';
 import { Difficulty } from '../models/Difficulty';
+import type { PlayerRoundResult, RoundResult } from '../models/RoundResult';
 
-/**
- * Round Results screen — displayed after every puzzle in practice mode.
- *
- * Shows:
- *   - Correct answer vs player's answer
- *   - Response time
- *   - Correct / Incorrect outcome
- *   - Difficulty advancement notification
- *   - Accumulated statistics (accuracy, streak, averages)
- *
- * Press Space or click "Next Puzzle" to continue.
- */
 export function RoundResultsScreen() {
   const config = useGameStore((s) => s.config);
   const currentRound = useGameStore((s) => s.currentRound);
+  const currentPuzzle = useGameStore((s) => s.currentPuzzle);
   const continueFromResults = useGameStore((s) => s.continueFromResults);
   const resetToHome = useGameStore((s) => s.resetToHome);
   const roundResults = useGameStore((s) => s.roundResults);
@@ -25,151 +15,88 @@ export function RoundResultsScreen() {
 
   const isPractice = config.gameMode === GameMode.PRACTICE;
   const latestResult = roundResults[roundResults.length - 1];
-  const playerResult = latestResult?.playerResults[0];
 
-  if (!latestResult || !playerResult) return null;
-
-  const isCorrect = playerResult.isCorrect;
-  const playerAnswer = playerResult.answer;
-  const correctAnswer = latestResult.correctAnswer;
-  const answerTime = playerResult.answerTime;
+  if (!latestResult) return null;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F7F7F7] px-6 py-12">
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto w-full">
-
+      <div className="flex-1 flex flex-col items-center justify-center gap-8 max-w-lg mx-auto w-full">
+        
         {/* Outcome banner */}
-        <div
-          className={`w-full rounded-2xl border p-6 text-center ${
-            isCorrect
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
-          }`}
-        >
-          <div className="text-3xl mb-2">
-            {isCorrect ? '✓' : '✗'}
-          </div>
-          <p className={`text-sm font-semibold uppercase tracking-wide ${
-            isCorrect ? 'text-green-600' : 'text-red-500'
-          }`}>
-            {isCorrect ? 'Correct!' : 'Incorrect'}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Round {currentRound}
-          </p>
-        </div>
+        <OutcomeBanner result={latestResult} isPractice={isPractice} currentRound={currentRound} />
 
         {/* Answer comparison */}
-        <div className="w-full bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="grid grid-cols-2">
-            <div className="p-5 border-r border-gray-100 text-center">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Correct Answer
-              </p>
-              <p className="text-4xl font-bold text-gray-900 tabular-nums">
-                {correctAnswer}
-              </p>
-            </div>
-            <div className="p-5 text-center">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Your Answer
-              </p>
-              <p className={`text-4xl font-bold tabular-nums ${
-                isCorrect ? 'text-gray-900' : 'text-red-500'
-              }`}>
-                {playerAnswer}
-              </p>
-            </div>
+        <div className="w-full geo-panel-light flex flex-col">
+          <div className="p-4 border-b-2 border-black text-center bg-white">
+            <p className="text-xs font-bold text-[#555] uppercase tracking-wider mb-1">
+              Correct Answer
+            </p>
+            <p className="text-5xl font-bold text-black tabular-nums">
+              {latestResult.correctAnswer}
+            </p>
           </div>
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
-            <span className="text-xs text-gray-400">Response time</span>
-            <span className="text-sm font-semibold text-gray-700 tabular-nums">
-              {answerTime.toFixed(2)}s
-            </span>
+          <div className="flex divide-x-2 divide-black">
+            {latestResult.playerResults.map((pr) => (
+              <PlayerResultColumn
+                key={pr.playerId}
+                result={pr}
+                isWinner={latestResult.winnerId === pr.playerId}
+              />
+            ))}
           </div>
         </div>
 
+        {/* Seed display */}
+        {currentPuzzle && (
+          <div className="text-[10px] text-gray-500 font-mono tracking-widest text-center uppercase">
+            Seed: {currentPuzzle.metadata.seed}
+          </div>
+        )}
+
         {/* Difficulty advancement notice */}
-        {difficultyJustAdvanced && (
-          <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-center">
-            <p className="text-xs font-semibold text-amber-700">
+        {difficultyJustAdvanced && isPractice && (
+          <div className="w-full border-2 border-[#F59E0B] bg-[#F59E0B]/10 px-5 py-3 text-center shadow-[4px_4px_0px_0px_#F59E0B]">
+            <p className="text-sm font-bold text-[#F59E0B] uppercase tracking-wide">
               Difficulty increased → {config.difficulty === Difficulty.MEDIUM ? 'Medium' : 'Hard'}
-            </p>
-            <p className="text-[10px] text-amber-600 mt-0.5">
-              Every 5 correct answers, puzzles get harder
             </p>
           </div>
         )}
 
         {/* Practice statistics */}
         {isPractice && practiceStatistics && (
-          <div className="w-full bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+          <div className="w-full border-2 border-black bg-white p-5 space-y-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+            <p className="text-xs font-bold text-black uppercase tracking-wider text-center">
               Session Stats
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <StatCell
-                label="Accuracy"
-                value={`${practiceStatistics.accuracyPercentage}%`}
-              />
-              <StatCell
-                label="Solved"
-                value={String(practiceStatistics.totalPuzzlesSolved)}
-              />
-              <StatCell
-                label="Streak"
-                value={String(practiceStatistics.currentStreak)}
-                sub={`Best: ${practiceStatistics.bestStreak}`}
-              />
-              <StatCell
-                label="Avg. Time"
-                value={
-                  practiceStatistics.averageResponseTime !== null
-                    ? `${practiceStatistics.averageResponseTime.toFixed(1)}s`
-                    : '—'
-                }
-              />
-              <StatCell
-                label="Correct"
-                value={String(practiceStatistics.correctAnswers)}
-                highlight="success"
-              />
-              <StatCell
-                label="Incorrect"
-                value={String(practiceStatistics.incorrectAnswers)}
-                highlight={practiceStatistics.incorrectAnswers > 0 ? 'error' : undefined}
-              />
+            <div className="grid grid-cols-3 gap-3">
+              <StatCell label="Acc" value={`${practiceStatistics.accuracyPercentage}%`} />
+              <StatCell label="Solved" value={String(practiceStatistics.totalPuzzlesSolved)} />
+              <StatCell label="Streak" value={String(practiceStatistics.currentStreak)} />
+              <StatCell label="Avg" value={practiceStatistics.averageResponseTime !== null ? `${practiceStatistics.averageResponseTime.toFixed(1)}s` : '—'} />
+              <StatCell label="Correct" value={String(practiceStatistics.correctAnswers)} highlight="success" />
+              <StatCell label="Incorrect" value={String(practiceStatistics.incorrectAnswers)} highlight={practiceStatistics.incorrectAnswers > 0 ? 'error' : undefined} />
             </div>
-            {practiceStatistics.fastestCorrectAnswer !== null && (
-              <div className="pt-2 border-t border-gray-100">
-                <p className="text-[10px] text-gray-400 text-center">
-                  Fastest correct answer:{' '}
-                  <span className="font-semibold text-gray-600">
-                    {practiceStatistics.fastestCorrectAnswer.toFixed(2)}s
-                  </span>
-                </p>
-              </div>
-            )}
           </div>
         )}
 
         {/* Actions */}
-        <div className="w-full flex flex-col gap-3">
+        <div className="w-full flex flex-col gap-4 mt-2">
           <button
-            onClick={continueFromResults}
-            className="w-full bg-gray-900 text-white font-semibold py-3.5 rounded-xl hover:bg-gray-700 active:scale-95 transition-all duration-150"
+            onClick={() => continueFromResults()}
+            className="geo-button w-full py-4 text-lg uppercase"
           >
-            Next Puzzle
+            {isPractice ? 'Next Puzzle' : 'Continue'}
           </button>
+          
           <button
             onClick={resetToHome}
-            className="w-full text-gray-400 font-medium py-2.5 rounded-xl hover:text-gray-600 transition-colors duration-150 text-sm"
+            className="geo-button-secondary w-full py-3 text-sm uppercase"
           >
             Quit to Home
           </button>
         </div>
 
-        <p className="text-[10px] text-gray-300">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
           Press Space to continue
         </p>
       </div>
@@ -177,37 +104,83 @@ export function RoundResultsScreen() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// StatCell — a compact statistic display
-// ---------------------------------------------------------------------------
+function OutcomeBanner({ result, isPractice, currentRound }: { result: RoundResult; isPractice: boolean; currentRound: number; }) {
+  if (isPractice) {
+    const p1 = result.playerResults[0];
+    const isCorrect = p1?.isCorrect;
+    return (
+      <div
+        className={`w-full border-2 p-6 text-center ${
+          isCorrect
+            ? 'bg-[#B8FF2C] border-black text-black shadow-[6px_6px_0px_0px_#000]'
+            : 'bg-[#EF4444] border-black text-white shadow-[6px_6px_0px_0px_#000]'
+        }`}
+      >
+        <p className="text-3xl font-bold uppercase tracking-widest mb-1">
+          {isCorrect ? 'Correct!' : 'Incorrect'}
+        </p>
+        <p className={`text-sm font-bold uppercase tracking-wide ${isCorrect ? 'text-[#333]' : 'text-[#FFAAAA]'}`}>
+          Round {currentRound}
+        </p>
+      </div>
+    );
+  }
 
-function StatCell({
-  label,
-  value,
-  sub,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  highlight?: 'success' | 'error';
-}) {
-  const valueColor =
-    highlight === 'success'
-      ? 'text-green-600'
-      : highlight === 'error'
-        ? 'text-red-500'
-        : 'text-gray-900';
+  // Multiplayer banner
+  const winner = result.winnerId;
+  const isDraw = winner === null;
+  const isP1 = winner === 'player1';
 
   return (
-    <div className="bg-gray-50 rounded-xl p-3">
-      <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">
+    <div
+      className={`w-full border-2 p-6 text-center shadow-[6px_6px_0px_0px_#000] ${
+        isDraw
+          ? 'bg-white border-black text-black'
+          : 'bg-[#B8FF2C] border-black text-black'
+      }`}
+    >
+      <p className="text-3xl font-bold uppercase tracking-widest mb-1">
+        {isDraw ? 'Draw' : `Player ${isP1 ? '1' : '2'} Wins`}
+      </p>
+      <p className="text-sm font-bold uppercase tracking-wide text-[#333]">
+        Round {currentRound}
+      </p>
+    </div>
+  );
+}
+
+function PlayerResultColumn({ result, isWinner }: { result: PlayerRoundResult; isWinner: boolean; }) {
+  const isP1 = result.playerId === 'player1';
+  return (
+    <div className={`flex-1 p-5 text-center ${isWinner ? 'bg-[#E8FFB3]' : 'bg-[#F0F0F0]'}`}>
+      <p className="text-xs font-bold text-[#555] uppercase tracking-wider mb-2">
+        {isP1 ? 'Player 1' : 'Player 2'}
+      </p>
+      <p className={`text-4xl font-bold tabular-nums mb-4 ${
+        result.isCorrect ? 'text-black' : 'text-[#EF4444]'
+      }`}>
+        {result.answer}
+      </p>
+      <div className="flex flex-col items-center gap-1 bg-black text-[#B8FF2C] py-1 border border-black shadow-[2px_2px_0px_0px_#000]">
+        <span className="text-[10px] uppercase tracking-widest text-[#B8FF2C]">Time</span>
+        <span className="text-sm font-bold tabular-nums">
+          {result.recordedTime.toFixed(2)}s
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StatCell({ label, value, highlight }: { label: string; value: string; highlight?: 'success' | 'error' }) {
+  const valueColor = highlight === 'success' ? 'text-[#3E8B15]' : highlight === 'error' ? 'text-[#EF4444]' : 'text-black';
+  return (
+    <div className="bg-gray-50 border-2 border-black p-3 text-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
         {label}
       </p>
-      <p className={`text-xl font-bold tabular-nums ${valueColor}`}>
+      <p className={`text-lg font-bold tabular-nums ${valueColor}`}>
         {value}
       </p>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );
 }

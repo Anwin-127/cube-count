@@ -8,18 +8,6 @@ import { useDebugOverlay } from '../hooks/useDebugOverlay';
 import { useTimer } from '../hooks/useTimer';
 import type { RenderInfo } from '../renderer/types';
 
-/**
- * Gameplay screen — the core playing experience.
- *
- * Handles all active gameplay phases:
- *   - GENERATING_PUZZLE: brief loading state
- *   - DISPLAYING_PUZZLE: isometric puzzle is shown with countdown
- *   - ANSWER_PHASE:      puzzle hidden, player enters answer
- *   - VALIDATING:        brief transition
- *
- * The puzzle canvas is always mounted but receives a null puzzle
- * when the puzzle should not be visible.
- */
 export function GameplayScreen() {
   const phase = useGameStore((s) => s.phase);
   const config = useGameStore((s) => s.config);
@@ -29,6 +17,7 @@ export function GameplayScreen() {
   const incrementAnswer = useGameStore((s) => s.incrementAnswer);
   const decrementAnswer = useGameStore((s) => s.decrementAnswer);
   const submitAnswer = useGameStore((s) => s.submitAnswer);
+  const practiceStatistics = useGameStore((s) => s.practiceStatistics);
 
   const showDebug = useDebugOverlay();
   const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null);
@@ -36,53 +25,88 @@ export function GameplayScreen() {
 
   const timeRemaining = useTimer();
   const isPractice = config.gameMode === GameMode.PRACTICE;
-  const player = players[0]; // Practice mode: only player1
+  const player1 = players[0];
+  const player2 = players[1];
 
-  // During DISPLAYING_PUZZLE the puzzle is visible
   const visiblePuzzle = phase === GamePhase.DISPLAYING_PUZZLE ? puzzle : null;
-
   const isAnswerPhase = phase === GamePhase.ANSWER_PHASE;
   const isDisplayPhase = phase === GamePhase.DISPLAYING_PUZZLE;
-  const submitted = player?.hasSubmitted ?? false;
+  
+  const p1Submitted = player1?.hasSubmitted ?? false;
+  const p2Submitted = player2?.hasSubmitted ?? false;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F7F7F7]">
       {/* ── Top bar ─────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-6 pt-6 pb-2">
-        <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-          {isPractice ? 'Practice' : 'Round'} {currentRound}
+      <header className="flex items-center justify-between px-8 pt-6 pb-2">
+        <div className="text-sm font-bold text-black uppercase tracking-wider flex flex-col">
+          <span>{isPractice ? 'Practice Mode' : 'Match'}</span>
+          <span className="text-black">
+            {isPractice
+              ? `Solved ${practiceStatistics?.totalPuzzlesSolved ?? 0}`
+              : `Round ${currentRound} / ${config.numberOfRounds}`}
+          </span>
         </div>
+        
         <TimerBadge
           seconds={timeRemaining}
           phase={phase}
           maxAnswerTime={config.maximumAnswerTime}
           maxDisplayTime={config.initialDisplayTime}
         />
-        <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-          {config.difficulty}
+        
+        <div className="text-sm font-bold text-black uppercase tracking-wider text-right flex flex-col">
+          <span>Difficulty</span>
+          <span className="text-black">{config.difficulty}</span>
         </div>
       </header>
 
-      {/* ── Puzzle canvas area ──────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-4">
+      {/* ── Main Content Area ───────────────────────────────────── */}
+      <div className="flex-1 flex flex-col lg:flex-row items-center justify-center px-6 py-4 gap-12 overflow-hidden">
+        
+        {/* Player 1 Panel (Multiplayer left side) */}
+        {!isPractice && player1 && (
+          <div className="w-full max-w-[280px]">
+            <AnswerPanel
+              title="Player 1"
+              answer={player1.currentAnswer}
+              submitted={p1Submitted}
+              isActive={isAnswerPhase}
+              recordedTime={player1.answerTime}
+              onIncrement={() => incrementAnswer('player1', 1)}
+              onIncrementTen={() => incrementAnswer('player1', 10)}
+              onDecrement={() => decrementAnswer('player1')}
+              onDecrementTen={() => decrementAnswer('player1', 10)}
+              onSubmit={() => submitAnswer('player1')}
+              keys={{
+                up: { key: 'W', label: '+1' },
+                left: { key: 'A', label: '-10' },
+                down: { key: 'S', label: '-1' },
+                right: { key: 'D', label: '+10' },
+                submit: { key: 'LShift', label: 'Submit' },
+              }}
+            />
+          </div>
+        )}
+
+        {/* Puzzle canvas area */}
         <div
-          className="relative w-full"
-          style={{ maxWidth: 520, aspectRatio: '4 / 3' }}
+          className="relative w-full border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white max-h-full"
+          style={{ maxWidth: 600, aspectRatio: '4 / 3' }}
         >
           {/* Loading state */}
           {phase === GamePhase.GENERATING_PUZZLE && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 rounded-2xl bg-white">
-              <div className="text-center">
-                <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Generating puzzle…</p>
+            <div className="absolute inset-0 flex items-center justify-center z-10 bg-white">
+              <div className="text-center text-black font-bold uppercase tracking-widest text-xl animate-pulse">
+                Generating...
               </div>
             </div>
           )}
 
           {/* Answer phase overlay */}
           {isAnswerPhase && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 rounded-2xl bg-white/95 backdrop-blur-sm transition-opacity duration-300">
-              <p className="text-2xl font-bold text-gray-300 select-none">
+            <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/95 backdrop-blur-sm transition-opacity duration-150">
+              <p className="text-3xl font-bold text-black uppercase tracking-widest select-none">
                 How many cubes?
               </p>
             </div>
@@ -90,14 +114,14 @@ export function GameplayScreen() {
 
           {/* Validating overlay */}
           {phase === GamePhase.VALIDATING && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 rounded-2xl bg-white/95">
-              <p className="text-gray-400 text-sm">Checking…</p>
+            <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/95">
+              <p className="text-black font-bold uppercase tracking-widest animate-pulse">Checking…</p>
             </div>
           )}
 
           <PuzzleCanvas
             puzzle={visiblePuzzle}
-            className="w-full h-full rounded-2xl overflow-hidden bg-white"
+            className="w-full h-full bg-white"
             onRenderInfo={handleRenderInfo}
           />
 
@@ -109,61 +133,87 @@ export function GameplayScreen() {
             />
           )}
 
-          {/* Debug overlay — dev only, F2 toggled */}
+          {/* Debug overlay */}
           {showDebug && (
             <DebugOverlay puzzle={puzzle} renderInfo={renderInfo} />
           )}
         </div>
-      </div>
 
-      {/* ── Answer panel ────────────────────────────────────────── */}
-      {player && (
-        <div className="px-6 pb-8">
-          <AnswerPanel
-            answer={player.currentAnswer}
-            submitted={submitted}
-            isActive={isAnswerPhase}
-            onIncrement={() => incrementAnswer('player1', 1)}
-            onIncrementTen={() => incrementAnswer('player1', 10)}
-            onDecrement={() => decrementAnswer('player1')}
-            onSubmit={() => submitAnswer('player1')}
-          />
+        {/* Right Panel: Player 1 (Practice) or Player 2 (Multiplayer) */}
+        <div className="w-full max-w-[280px]">
+          {isPractice && player1 && (
+            <AnswerPanel
+              title="Practice"
+              answer={player1.currentAnswer}
+              submitted={p1Submitted}
+              isActive={isAnswerPhase}
+              recordedTime={player1.answerTime}
+              onIncrement={() => incrementAnswer('player1', 1)}
+              onIncrementTen={() => incrementAnswer('player1', 10)}
+              onDecrement={() => decrementAnswer('player1')}
+              onDecrementTen={() => decrementAnswer('player1', 10)}
+              onSubmit={() => submitAnswer('player1')}
+              keys={{
+                up: { key: 'W', label: '+1' },
+                left: { key: 'A', label: '-10' },
+                down: { key: 'S', label: '-1' },
+                right: { key: 'D', label: '+10' },
+                submit: { key: 'LShift', label: 'Submit' },
+              }}
+            />
+          )}
+          {!isPractice && player2 && (
+            <AnswerPanel
+              title="Player 2"
+              answer={player2.currentAnswer}
+              submitted={p2Submitted}
+              isActive={isAnswerPhase}
+              recordedTime={player2.answerTime}
+              onIncrement={() => incrementAnswer('player2', 1)}
+              onIncrementTen={() => incrementAnswer('player2', 10)}
+              onDecrement={() => decrementAnswer('player2')}
+              onDecrementTen={() => decrementAnswer('player2', 10)}
+              onSubmit={() => submitAnswer('player2')}
+              keys={{
+                up: { key: '↑', label: '+1' },
+                left: { key: '←', label: '-10' },
+                down: { key: '↓', label: '-1' },
+                right: { key: '→', label: '+10' },
+                submit: { key: 'RShift', label: 'Submit' },
+              }}
+            />
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// TimerBadge — displays phase-appropriate countdown
+// TimerBadge
 // ---------------------------------------------------------------------------
 
-interface TimerBadgeProps {
-  seconds: number | null;
-  phase: GamePhase;
-  maxAnswerTime: number;
-  maxDisplayTime: number;
-}
-
-function TimerBadge({ seconds, phase, maxAnswerTime, maxDisplayTime }: TimerBadgeProps) {
-  if (seconds === null) return <div className="w-20" />;
+function TimerBadge({ seconds, phase, maxAnswerTime, maxDisplayTime }: {
+  seconds: number | null; phase: GamePhase; maxAnswerTime: number; maxDisplayTime: number;
+}) {
+  if (seconds === null) return <div className="w-24" />;
 
   const isDisplaying = phase === GamePhase.DISPLAYING_PUZZLE;
   const isAnswer = phase === GamePhase.ANSWER_PHASE;
   const max = isDisplaying ? maxDisplayTime : maxAnswerTime;
   const urgency = seconds / max;
-  const isUrgent = urgency < 0.25 && isAnswer;
+  const isUrgent = urgency <= 0.25 && isAnswer;
 
   return (
     <div
-      className={`text-center min-w-20 transition-colors duration-300 ${
-        isUrgent ? 'text-red-500' : isAnswer ? 'text-gray-900' : 'text-gray-400'
+      className={`text-center min-w-24 transition-colors duration-150 ${
+        isUrgent ? 'text-[#F59E0B]' : 'text-black'
       }`}
     >
-      <div className={`text-2xl font-bold tabular-nums ${isUrgent ? 'animate-pulse' : ''}`}>
+      <div className={`text-4xl font-bold tabular-nums ${isUrgent ? 'animate-[pulse_0.5s_ease-in-out_infinite] scale-110' : ''} transition-transform`}>
         {seconds.toFixed(1)}
       </div>
-      <div className="text-[9px] uppercase tracking-widest text-gray-400 mt-0.5">
+      <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${isUrgent ? 'text-[#F59E0B]' : 'text-gray-500'}`}>
         {isDisplaying ? 'memorise' : 'answer'}
       </div>
     </div>
@@ -171,7 +221,7 @@ function TimerBadge({ seconds, phase, maxAnswerTime, maxDisplayTime }: TimerBadg
 }
 
 // ---------------------------------------------------------------------------
-// TimerRing — circular progress indicator on puzzle canvas edge
+// TimerRing
 // ---------------------------------------------------------------------------
 
 function TimerRing({ remaining, total }: { remaining: number; total: number }) {
@@ -181,26 +231,19 @@ function TimerRing({ remaining, total }: { remaining: number; total: number }) {
   const offset = circumference * (1 - progress);
 
   return (
-    <div className="absolute top-3 right-3 pointer-events-none" aria-hidden="true">
+    <div className="absolute top-4 right-4 pointer-events-none" aria-hidden="true">
       <svg width={40} height={40} className="rotate-[-90deg]">
+        <circle cx={20} cy={20} r={radius} fill="none" stroke="#EEEEEE" strokeWidth={4} />
         <circle
           cx={20}
           cy={20}
           r={radius}
           fill="none"
-          stroke="rgba(0,0,0,0.08)"
-          strokeWidth={3}
-        />
-        <circle
-          cx={20}
-          cy={20}
-          r={radius}
-          fill="none"
-          stroke="rgba(0,0,0,0.5)"
-          strokeWidth={3}
+          stroke="black"
+          strokeWidth={4}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          strokeLinecap="round"
+          strokeLinecap="square"
           style={{ transition: 'stroke-dashoffset 0.1s linear' }}
         />
       </svg>
@@ -209,134 +252,136 @@ function TimerRing({ remaining, total }: { remaining: number; total: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// AnswerPanel — the player's input interface during ANSWER_PHASE
+// AnswerPanel
 // ---------------------------------------------------------------------------
 
 interface AnswerPanelProps {
+  title: string;
   answer: number;
   submitted: boolean;
   isActive: boolean;
+  recordedTime?: number | null;
   onIncrement: () => void;
   onIncrementTen: () => void;
   onDecrement: () => void;
+  onDecrementTen: () => void;
   onSubmit: () => void;
+  keys: {
+    up: { key: string; label: string };
+    left: { key: string; label: string };
+    down: { key: string; label: string };
+    right: { key: string; label: string };
+    submit: { key: string; label: string };
+  };
 }
 
 function AnswerPanel({
+  title,
   answer,
   submitted,
   isActive,
+  recordedTime,
   onIncrement,
   onIncrementTen,
   onDecrement,
+  onDecrementTen,
   onSubmit,
+  keys,
 }: AnswerPanelProps) {
   const disabled = !isActive || submitted;
 
   return (
     <div
-      className={`bg-white rounded-2xl border border-gray-200 shadow-sm p-6 transition-opacity duration-300 ${
+      className={`geo-panel-light p-6 transition-opacity duration-150 ${
         isActive ? 'opacity-100' : 'opacity-50'
       }`}
     >
       {submitted ? (
-        /* Submitted state */
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">
-              Your Answer
-            </p>
-            <p className="text-5xl font-bold text-gray-900 tabular-nums">
-              {answer}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
-            <span className="text-green-600 text-sm font-medium">Submitted ✓</span>
+        <div className="flex flex-col items-center justify-center py-4 h-[300px]">
+          <p className="text-sm font-bold text-[#555] uppercase tracking-wider mb-2">
+            {title} Answer
+          </p>
+          <p className="text-6xl font-bold text-black tabular-nums mb-6">
+            {answer}
+          </p>
+          <div className="bg-black text-[#B8FF2C] font-bold uppercase tracking-wider text-sm px-4 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#B8FF2C]">
+            Locked: {recordedTime?.toFixed(2)}s
           </div>
         </div>
       ) : (
-        /* Input state */
-        <div className="space-y-4">
+        <div className="flex flex-col justify-between h-[300px]">
           {/* Answer display */}
-          <div className="text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">
-              Your Answer
+          <div className="text-center mb-2">
+            <p className="text-sm font-bold text-[#555] uppercase tracking-wider mb-1">
+              {title}
             </p>
             <p
-              className={`text-6xl font-bold tabular-nums transition-colors duration-150 ${
-                isActive ? 'text-gray-900' : 'text-gray-300'
+              className={`text-6xl font-bold tabular-nums ${
+                isActive ? 'text-black' : 'text-[#888]'
               }`}
             >
               {answer}
             </p>
           </div>
 
-          {/* Control buttons */}
-          <div className="grid grid-cols-4 gap-2">
-            <AnswerButton
-              onClick={onDecrementSafe.bind(null, onDecrement, answer)}
-              disabled={disabled || answer <= 0}
-              variant="secondary"
-            >
-              −1
-            </AnswerButton>
-            <AnswerButton
-              onClick={onIncrement}
-              disabled={disabled}
-              variant="secondary"
-            >
-              +1
-            </AnswerButton>
-            <AnswerButton
-              onClick={onIncrementTen}
-              disabled={disabled}
-              variant="secondary"
-            >
-              +10
-            </AnswerButton>
-            <AnswerButton
+          {/* Directional Control Buttons */}
+          <div className="flex flex-col items-center w-full">
+            <div className="grid grid-cols-3 grid-rows-3 gap-2 items-center justify-items-center w-full max-w-[200px]">
+              {/* Row 1: Up */}
+              <div />
+              <button
+                onClick={onIncrement}
+                disabled={disabled}
+                className="geo-button-secondary w-full h-12 flex flex-col items-center justify-center relative group"
+              >
+                <span className="text-[10px] text-[#555] font-bold absolute top-0.5">{keys.up.label}</span>
+                <span className="text-sm font-bold text-black mt-2">{keys.up.key}</span>
+              </button>
+              <div />
+              
+              {/* Row 2: Left, Empty, Right */}
+              <button
+                onClick={() => { if (answer > 0) onDecrementTen(); }}
+                disabled={disabled || answer < 10}
+                className="geo-button-secondary w-full h-12 flex flex-col items-center justify-center relative group"
+              >
+                <span className="text-[10px] text-[#555] font-bold absolute top-0.5">{keys.left.label}</span>
+                <span className="text-sm font-bold text-black mt-2">{keys.left.key}</span>
+              </button>
+              <div />
+              <button
+                onClick={onIncrementTen}
+                disabled={disabled}
+                className="geo-button-secondary w-full h-12 flex flex-col items-center justify-center relative group"
+              >
+                <span className="text-[10px] text-[#555] font-bold absolute top-0.5">{keys.right.label}</span>
+                <span className="text-sm font-bold text-black mt-2">{keys.right.key}</span>
+              </button>
+
+              {/* Row 3: Down */}
+              <div />
+              <button
+                onClick={() => { if (answer > 0) onDecrement(); }}
+                disabled={disabled || answer <= 0}
+                className="geo-button-secondary w-full h-12 flex flex-col items-center justify-center relative group"
+              >
+                <span className="text-[10px] text-[#555] font-bold absolute top-0.5">{keys.down.label}</span>
+                <span className="text-sm font-bold text-black mt-2">{keys.down.key}</span>
+              </button>
+              <div />
+            </div>
+
+            <button
               onClick={onSubmit}
               disabled={disabled}
-              variant="primary"
+              className="geo-button w-full h-10 flex items-center justify-center mt-3 gap-2"
             >
-              Submit
-            </AnswerButton>
+              <kbd className="bg-black text-[#B8FF2C] px-1.5 py-0.5 rounded-sm text-xs font-bold leading-none">{keys.submit.key}</kbd>
+              <span className="text-xs font-bold uppercase tracking-wider">{keys.submit.label}</span>
+            </button>
           </div>
-
-          {/* Key hint */}
-          <p className="text-center text-[10px] text-gray-300">
-            A +1 · W +10 · S −1 · Shift submit
-          </p>
         </div>
       )}
     </div>
-  );
-}
-
-function onDecrementSafe(onDecrement: () => void, answer: number) {
-  if (answer > 0) onDecrement();
-}
-
-interface AnswerButtonProps {
-  onClick: () => void;
-  disabled: boolean;
-  variant: 'primary' | 'secondary';
-  children: React.ReactNode;
-}
-
-function AnswerButton({ onClick, disabled, variant, children }: AnswerButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`py-3 rounded-xl font-semibold text-sm transition-all duration-100 active:scale-95
-        ${variant === 'primary'
-          ? 'bg-gray-900 text-white hover:bg-gray-700 disabled:bg-gray-200 disabled:text-gray-400'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-40'
-        }
-        disabled:cursor-not-allowed disabled:active:scale-100`}
-    >
-      {children}
-    </button>
   );
 }

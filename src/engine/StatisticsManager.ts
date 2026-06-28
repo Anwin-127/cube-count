@@ -31,6 +31,8 @@ export function createMatchStats(
       incorrectAnswers: 0,
       totalRecordedTime: 0,
       fastestCorrectAnswer: null,
+      averageResponseTime: null,
+      roundWins: 0,
     })),
   };
 }
@@ -48,7 +50,13 @@ export function updateMatchStats(
     );
     if (!result) return ps;
 
-    return updatePlayerStats(ps, result.isCorrect, result.recordedTime);
+    return updatePlayerStats(
+      ps,
+      result.isCorrect,
+      result.recordedTime,
+      roundResult.winnerId === ps.playerId,
+      stats.completedRounds,
+    );
   });
 
   return {
@@ -98,6 +106,8 @@ function updatePlayerStats(
   ps: PlayerStatistics,
   isCorrect: boolean,
   recordedTime: number,
+  isWinner: boolean,
+  previousCompletedRounds: number,
 ): PlayerStatistics {
   const correctAnswers = ps.correctAnswers + (isCorrect ? 1 : 0);
   const incorrectAnswers = ps.incorrectAnswers + (isCorrect ? 0 : 1);
@@ -111,12 +121,21 @@ function updatePlayerStats(
         : Math.min(fastestCorrectAnswer, recordedTime);
   }
 
+  const roundWins = ps.roundWins + (isWinner ? 1 : 0);
+
+  const previousTotal = (ps.averageResponseTime ?? 0) * previousCompletedRounds;
+  const currentTotalRounds = previousCompletedRounds + 1;
+  const averageResponseTime =
+    Math.round(((previousTotal + recordedTime) / currentTotalRounds) * 100) / 100;
+
   return {
     ...ps,
     correctAnswers,
     incorrectAnswers,
     totalRecordedTime,
     fastestCorrectAnswer,
+    averageResponseTime,
+    roundWins,
   };
 }
 
