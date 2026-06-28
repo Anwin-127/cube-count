@@ -64,29 +64,6 @@ export function HomeScreen() {
         Then count how many cubes are in the structure — including the hidden ones.
       </div>
 
-      {/* Dev-only links — remove before production */}
-      {import.meta.env.DEV && (
-        <div className="flex gap-4">
-          <a
-            href="#playground"
-            className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
-          >
-            🧪 Puzzle Playground
-          </a>
-          <a
-            href="#game-playground"
-            className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
-          >
-            🎮 Game Playground
-          </a>
-          <a
-            href="#renderer-playground"
-            className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
-          >
-            🎨 Renderer
-          </a>
-        </div>
-      )}
     </div>
   );
 }

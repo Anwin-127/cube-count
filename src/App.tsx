@@ -8,9 +8,6 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { GameplayScreen } from './screens/GameplayScreen';
 import { RoundResultsScreen } from './screens/RoundResultsScreen';
 import { FinalResultsScreen } from './screens/FinalResultsScreen';
-import { PuzzlePlayground } from './screens/PuzzlePlayground';
-import { GamePlayground } from './screens/GamePlayground';
-import { RendererPlayground } from './screens/RendererPlayground';
 
 /**
  * Root application component.
@@ -31,23 +28,12 @@ function App() {
   const phase = useGameStore((s) => s.phase);
   const [devRoute, setDevRoute] = useState(window.location.hash);
 
-  // Listen for hash changes to support dev routing.
+  // Listen for hash changes (could be used for future routing)
   useEffect(() => {
     const handleHashChange = () => setDevRoute(window.location.hash);
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-
-  // Dev routes bypass the game FSM.
-  if (devRoute === '#playground') {
-    return <PuzzlePlayground />;
-  }
-  if (devRoute === '#game-playground') {
-    return <GamePlayground />;
-  }
-  if (devRoute === '#renderer-playground') {
-    return <RendererPlayground />;
-  }
 
   const renderScreen = () => {
     switch (phase) {
