@@ -20,6 +20,7 @@ export interface MatchStatistics {
   totalRounds: number;
   completedRounds: number;
   playerStatistics: PlayerStatistics[];
+  seedsUsed: number[];
 }
 
 /**
@@ -35,6 +36,7 @@ export interface PracticeStatistics {
   averageResponseTime: number | null;
   currentStreak: number;
   bestStreak: number;
+  seedsUsed: number[];
 }
 
 /**
@@ -45,6 +47,7 @@ export function createInitialMatchStatistics(): MatchStatistics {
     totalRounds: 0,
     completedRounds: 0,
     playerStatistics: [],
+    seedsUsed: [],
   };
 }
 
@@ -61,5 +64,6 @@ export function createInitialPracticeStatistics(): PracticeStatistics {
     averageResponseTime: null,
     currentStreak: 0,
     bestStreak: 0,
+    seedsUsed: [],
   };
 }

@@ -67,6 +67,8 @@ export interface GameState {
    * Null when no progression happened in the latest round.
    */
   difficultyJustAdvanced: boolean;
+  /** History of recently generated puzzle hashes. */
+  puzzleHashHistory: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +125,7 @@ function createInitialState(): GameState {
     answerStartTime: null,
     currentDisplayDuration: DEFAULT_GAME_CONFIG.initialDisplayTime,
     difficultyJustAdvanced: false,
+    puzzleHashHistory: [],
   };
 }
 
@@ -147,12 +150,10 @@ export const useGameStore = create<GameStore>()(
       // -- Game lifecycle ----------------------------------------------------
 
       startMatch: () => {
-        const { config, phase } = get();
+        const { config, phase, puzzleHashHistory } = get();
         const newPhase = transition(phase, GamePhase.GENERATING_PUZZLE);
 
-        // Ensure we have an initial seed for the match (enables replay)
-        const initialSeed = config.puzzleSeed ?? generateSeed();
-        const activeConfig = { ...config, puzzleSeed: initialSeed };
+        const activeConfig = { ...config };
 
         // Create players
         const players: PlayerState[] =
@@ -177,8 +178,17 @@ export const useGameStore = create<GameStore>()(
           : null;
 
         // Generate puzzle for round 1
-        const puzzle = generatePuzzleForRound(activeConfig, 1);
+        const { puzzle, seedUsed, hash } = generatePuzzleForRound(activeConfig, 1, puzzleHashHistory);
         const displayDuration = getDisplayTimeForCurrentRound(activeConfig, 1);
+        
+        const newHistory = [...puzzleHashHistory, hash].slice(-50);
+        
+        if (matchStatistics) {
+          matchStatistics.seedsUsed = [seedUsed];
+        }
+        if (practiceStatistics) {
+          practiceStatistics.seedsUsed = [seedUsed];
+        }
 
         set(
           {
@@ -386,11 +396,26 @@ export const useGameStore = create<GameStore>()(
 
         // Start next round
         const nextRound = state.currentRound + 1;
-        const puzzle = generatePuzzleForRound(state.config, nextRound);
+        const { puzzle, seedUsed, hash } = generatePuzzleForRound(
+          state.config,
+          nextRound,
+          state.puzzleHashHistory,
+        );
         const displayDuration = getDisplayTimeForCurrentRound(
           state.config,
           nextRound,
         );
+        
+        const newHistory = [...state.puzzleHashHistory, hash].slice(-50);
+        
+        let matchStatistics = state.matchStatistics;
+        if (matchStatistics) {
+           matchStatistics = { ...matchStatistics, seedsUsed: [...matchStatistics.seedsUsed, seedUsed] };
+        }
+        let practiceStatistics = state.practiceStatistics;
+        if (practiceStatistics) {
+           practiceStatistics = { ...practiceStatistics, seedsUsed: [...practiceStatistics.seedsUsed, seedUsed] };
+        }
 
         const resetPlayers = state.players.map((p) =>
           createInitialPlayerState(p.id),
@@ -409,6 +434,9 @@ export const useGameStore = create<GameStore>()(
             answerStartTime: null,
             currentDisplayDuration: displayDuration,
             difficultyJustAdvanced: false,
+            puzzleHashHistory: newHistory,
+            matchStatistics,
+            practiceStatistics,
           },
           false,
           'continueFromResults:nextRound',
@@ -419,12 +447,15 @@ export const useGameStore = create<GameStore>()(
         const state = get();
         if (state.phase !== GamePhase.FINAL_RESULTS) return;
         
-        let newConfig = state.config;
-        if (!replaySameSeed) {
-           // Ensure it generates a new random seed
-           newConfig = { ...state.config, puzzleSeed: undefined };
-        } else if (replaySameSeed && state.currentPuzzle) {
-           newConfig = { ...state.config, puzzleSeed: state.currentPuzzle.metadata.seed };
+        let newConfig = { ...state.config };
+        if (replaySameSeed) {
+           if (state.matchStatistics && state.matchStatistics.seedsUsed.length > 0) {
+             newConfig.replaySeeds = [...state.matchStatistics.seedsUsed];
+           } else if (state.practiceStatistics && state.practiceStatistics.seedsUsed.length > 0) {
+             newConfig.replaySeeds = [...state.practiceStatistics.seedsUsed];
+           }
+        } else {
+           newConfig.replaySeeds = undefined;
         }
         
         set({ config: newConfig }, false, 'continueFromFinalResults:setConfig');

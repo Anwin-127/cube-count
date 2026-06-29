@@ -17,6 +17,8 @@ export interface PuzzleGenerationConfig {
   readonly difficulty: Difficulty;
   /** Maximum stack height per cell (inclusive). */
   readonly maxHeight: number;
+  /** Target complexity range [min, max]. */
+  readonly targetComplexityRange?: [number, number];
 }
 
 /**
@@ -25,7 +27,7 @@ export interface PuzzleGenerationConfig {
  * Shape generation may produce invalid results (disconnected, too small).
  * Each retry uses a different effective seed to advance the RNG state.
  */
-const MAX_GENERATION_ATTEMPTS = 20;
+const MAX_GENERATION_ATTEMPTS = 50;
 
 /**
  * Creates a complete, immutable Puzzle object from a generation config.
@@ -44,6 +46,9 @@ const MAX_GENERATION_ATTEMPTS = 20;
  * @throws Error if a valid puzzle cannot be generated within MAX_GENERATION_ATTEMPTS.
  */
 export function createPuzzle(config: PuzzleGenerationConfig): Puzzle {
+  let bestFallback: Puzzle | null = null;
+  let minDifference = Infinity;
+
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
     const effectiveSeed = config.seed + attempt;
     const rng = new SeededRandom(effectiveSeed);
@@ -76,33 +81,62 @@ export function createPuzzle(config: PuzzleGenerationConfig): Puzzle {
       config.maxHeight,
     );
 
-    // Step 5: Build metadata
-    const metadata: PuzzleMetadata = Object.freeze({
-      seed: config.seed,
-      difficulty: config.difficulty,
-      shapeFamily: result.shapeFamily,
-      complexityScore: Math.round(analysis.score * 1000) / 1000,
-      hiddenCubeEstimate: analysis.hiddenCubeEstimate,
-      generationAttempts: attempt + 1,
-      generationTimestamp: Date.now(),
-    });
+    // Filter by complexity if requested
+    if (config.targetComplexityRange) {
+      const [minRange, maxRange] = config.targetComplexityRange;
+      const score = analysis.score;
+      if (score < minRange || score > maxRange) {
+        // Track the closest one as a fallback
+        const diff = score < minRange ? minRange - score : score - maxRange;
+        if (diff < minDifference) {
+          minDifference = diff;
+          bestFallback = buildPuzzleObject(result, config, effectiveSeed, totalCubes, maximumHeight, analysis, attempt);
+        }
+        continue;
+      }
+    }
 
-    // Step 6: Deep freeze and return
-    const frozenHeightMap = Object.freeze(
-      result.heightMap.map((row) => Object.freeze([...row])),
-    );
+    return buildPuzzleObject(result, config, effectiveSeed, totalCubes, maximumHeight, analysis, attempt);
+  }
 
-    return Object.freeze({
-      heightMap: frozenHeightMap,
-      totalCubes,
-      maximumHeight,
-      boardSize: BOARD_SIZE,
-      metadata,
-    });
+  if (bestFallback) {
+    return bestFallback;
   }
 
   throw new Error(
     `Failed to generate a valid puzzle after ${MAX_GENERATION_ATTEMPTS} attempts ` +
       `(seed: ${config.seed}, maxHeight: ${config.maxHeight})`,
   );
+}
+
+function buildPuzzleObject(
+  result: any,
+  config: PuzzleGenerationConfig,
+  effectiveSeed: number,
+  totalCubes: number,
+  maximumHeight: number,
+  analysis: any,
+  attempt: number,
+): Puzzle {
+  const metadata: PuzzleMetadata = Object.freeze({
+    seed: effectiveSeed,
+    difficulty: config.difficulty,
+    shapeFamily: result.shapeFamily,
+    complexityScore: Math.round(analysis.score * 1000) / 1000,
+    hiddenCubeEstimate: analysis.hiddenCubeEstimate,
+    generationAttempts: attempt + 1,
+    generationTimestamp: Date.now(),
+  });
+
+  const frozenHeightMap = Object.freeze(
+    result.heightMap.map((row: number[]) => Object.freeze([...row])),
+  );
+
+  return Object.freeze({
+    heightMap: frozenHeightMap,
+    totalCubes,
+    maximumHeight,
+    boardSize: BOARD_SIZE,
+    metadata,
+  });
 }

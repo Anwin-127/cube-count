@@ -13,8 +13,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   gameMode: GameMode.LOCAL_MULTIPLAYER,
   numberOfRounds: 10,
   displayTimeMode: DisplayMode.FIXED,
-  initialDisplayTime: 3,
+  initialDisplayTime: 3.5,
   maximumAnswerTime: 10,
   difficulty: Difficulty.MEDIUM,
-  maximumStackHeight: 3,
+  maximumStackHeight: 2,
+  enableEarlyProgression: true,
 };

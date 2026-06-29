@@ -35,17 +35,29 @@ export function SettingsScreen() {
 
       <div className="geo-panel p-8 w-full max-w-sm space-y-6">
         {/* Difficulty */}
-        <SettingRow label="Starting Difficulty">
+        <SettingRow 
+          label={`${config.difficulty} DIFFICULTY`}
+          hint={getDifficultyDescription(config.difficulty)}
+        >
           <SegmentedControl
             options={[
               { label: 'EASY', value: Difficulty.EASY },
               { label: 'MED', value: Difficulty.MEDIUM },
               { label: 'HARD', value: Difficulty.HARD },
+              { label: 'IMP', value: Difficulty.IMPOSSIBLE },
+              { label: 'CUST', value: Difficulty.CUSTOM },
             ]}
             value={config.difficulty}
             onChange={(v) => {
               const diff = v as Difficulty;
-              const newTime = diff === Difficulty.EASY ? 5 : diff === Difficulty.MEDIUM ? 3 : 2;
+              if (diff === Difficulty.CUSTOM) {
+                updateConfig({ difficulty: diff });
+                return;
+              }
+              const newTime =
+                diff === Difficulty.EASY ? 5 :
+                diff === Difficulty.MEDIUM ? 3.5 :
+                diff === Difficulty.HARD ? 4 : 2.5;
               updateConfig({ difficulty: diff, initialDisplayTime: newTime });
             }}
           />
@@ -58,9 +70,9 @@ export function SettingsScreen() {
         >
           <StepperControl
             value={config.initialDisplayTime}
-            min={3}
+            min={1}
             max={30}
-            step={1}
+            step={0.5}
             unit="s"
             onChange={(v) => updateConfig({ initialDisplayTime: v })}
           />
@@ -80,6 +92,67 @@ export function SettingsScreen() {
             onChange={(v) => updateConfig({ maximumAnswerTime: v })}
           />
         </SettingRow>
+
+        {config.difficulty === Difficulty.CUSTOM && (
+          <>
+            <div className="border-t-2 border-black pt-6 space-y-6">
+              {/* Max Height */}
+              <SettingRow
+                label="Maximum Stack Height"
+                hint="Tallest possible tower of cubes"
+              >
+                <StepperControl
+                  value={config.maximumStackHeight ?? 3}
+                  min={1}
+                  max={3}
+                  step={1}
+                  unit=""
+                  onChange={(v) => updateConfig({ maximumStackHeight: v })}
+                />
+              </SettingRow>
+
+              {/* Puzzle Complexity */}
+              <SettingRow
+                label="Puzzle Complexity"
+                hint="Visual occlusion and structural variance"
+              >
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="range"
+                    min="0.10"
+                    max="1.00"
+                    step="0.05"
+                    value={config.customComplexity ?? 0.50}
+                    onChange={(e) => updateConfig({ customComplexity: parseFloat(e.target.value) })}
+                    className="w-full accent-black h-2 bg-gray-200 outline-none"
+                  />
+                  <div className="flex justify-between text-xs font-bold text-gray-500 uppercase">
+                    <span>Simple</span>
+                    <span className="text-black tabular-nums">{config.customComplexity ?? 0.50}</span>
+                    <span>Complex</span>
+                  </div>
+                </div>
+              </SettingRow>
+
+              {/* Early Progression */}
+              <SettingRow
+                label="Early Progression"
+                hint="Simplify rounds 1-5 to ease players in"
+              >
+                <button
+                  onClick={() => updateConfig({ enableEarlyProgression: !config.enableEarlyProgression })}
+                  className={`w-full py-3 border-2 border-black font-bold uppercase transition-all duration-100 ${
+                    config.enableEarlyProgression
+                      ? 'bg-[#B8FF2C] text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                      : 'bg-white text-gray-500 hover:text-black'
+                  }`}
+                >
+                  {config.enableEarlyProgression ? 'Enabled' : 'Disabled'}
+                </button>
+              </SettingRow>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Key bindings hint */}
@@ -135,6 +208,21 @@ export function SettingsScreen() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function getDifficultyDescription(difficulty: Difficulty): string {
+  switch (difficulty) {
+    case Difficulty.EASY:
+      return 'A gentle introduction. Max height of 1, very simple layouts, and 5 seconds to memorize.';
+    case Difficulty.MEDIUM:
+      return 'The standard experience. Max height of 2, moderate complexity, and 3.5 seconds to memorize.';
+    case Difficulty.HARD:
+      return 'For experienced players. Max height of 3, dense layouts, hidden cubes, and 4 seconds to memorize.';
+    case Difficulty.IMPOSSIBLE:
+      return 'Brutal difficulty. Maximum occlusion, extreme complexity, and only 2.5 seconds to memorize.';
+    case Difficulty.CUSTOM:
+      return 'Tune every aspect of the puzzle generator to your exact preferences.';
+  }
+}
 
 function SettingRow({
   label,
@@ -199,8 +287,15 @@ function StepperControl({
   unit: string;
   onChange: (v: number) => void;
 }) {
-  const decrement = () => onChange(Math.max(min, value - step));
-  const increment = () => onChange(Math.max(max, value + step));
+  const decrement = () => {
+    // avoid floating point precision issues
+    const nv = Math.round((value - step) * 100) / 100;
+    if (nv >= min) onChange(nv);
+  };
+  const increment = () => {
+    const nv = Math.round((value + step) * 100) / 100;
+    if (nv <= max) onChange(nv);
+  };
 
   return (
     <div className="flex items-center gap-2 border-2 border-black bg-gray-50 p-1">

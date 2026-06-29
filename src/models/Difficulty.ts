@@ -8,6 +8,8 @@ export const Difficulty = {
   EASY: 'EASY',
   MEDIUM: 'MEDIUM',
   HARD: 'HARD',
+  IMPOSSIBLE: 'IMPOSSIBLE',
+  CUSTOM: 'CUSTOM',
 } as const;
 
 export type Difficulty = (typeof Difficulty)[keyof typeof Difficulty];

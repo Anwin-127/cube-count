@@ -18,9 +18,20 @@ export const SUPPORTED_ROUND_COUNTS = [5, 10, 20] as const;
 
 /** Default maximum stack height per difficulty level. */
 export const DIFFICULTY_MAX_HEIGHTS: Record<Difficulty, number> = {
-  [Difficulty.EASY]: 2,
-  [Difficulty.MEDIUM]: 3,
-  [Difficulty.HARD]: 4,
+  [Difficulty.EASY]: 1,
+  [Difficulty.MEDIUM]: 2,
+  [Difficulty.HARD]: 3,
+  [Difficulty.IMPOSSIBLE]: 3,
+  [Difficulty.CUSTOM]: 3,
+};
+
+/** Complexity ranges per difficulty [min, max]. */
+export const DIFFICULTY_TARGET_COMPLEXITY: Record<Difficulty, [number, number]> = {
+  [Difficulty.EASY]: [0.15, 0.30],
+  [Difficulty.MEDIUM]: [0.35, 0.50],
+  [Difficulty.HARD]: [0.55, 0.70],
+  [Difficulty.IMPOSSIBLE]: [0.75, 0.90],
+  [Difficulty.CUSTOM]: [0, 1],
 };
 
 /**

@@ -18,6 +18,10 @@ export interface GameConfig {
   readonly maximumAnswerTime: number;
   readonly difficulty: Difficulty;
   readonly maximumStackHeight: number;
-  /** Optional seed for deterministic puzzle generation. */
-  readonly puzzleSeed?: number;
+  /** Complexity score target [0, 1] for CUSTOM difficulty. */
+  readonly customComplexity?: number;
+  /** Whether early rounds (1-5) are simplified. */
+  readonly enableEarlyProgression: boolean;
+  /** Exact sequence of seeds to use for a replay match. */
+  readonly replaySeeds?: number[];
 }

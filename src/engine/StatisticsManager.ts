@@ -194,5 +194,6 @@ export function updatePracticeStats(
     averageResponseTime,
     currentStreak,
     bestStreak,
+    seedsUsed: stats.seedsUsed,
   };
 }
