@@ -9,6 +9,14 @@ export const GamePhase = {
   HOME: 'HOME',
   /** Players configure game settings before starting. */
   SETTINGS: 'SETTINGS',
+  /** Online menu to enter name, create or join room. */
+  ONLINE_MENU: 'ONLINE_MENU',
+  /** Waiting room for online multiplayer before match starts. */
+  WAITING_ROOM: 'WAITING_ROOM',
+  /** Synchronizing game state between online clients. */
+  ONLINE_SYNCHRONIZING: 'ONLINE_SYNCHRONIZING',
+  /** Countdown before the puzzle begins. */
+  ONLINE_COUNTDOWN: 'ONLINE_COUNTDOWN',
   /** Puzzle generator is creating the next puzzle. */
   GENERATING_PUZZLE: 'GENERATING_PUZZLE',
   /** Puzzle is visible on screen. Players may only observe. */

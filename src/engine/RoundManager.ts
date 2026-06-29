@@ -37,7 +37,23 @@ export function generatePuzzleForRound(
   if (config.replaySeeds && config.replaySeeds.length >= round) {
     const seed = config.replaySeeds[round - 1];
     const puzzle = createPuzzleForConfig(config, round, seed);
-    return { puzzle, seedUsed: seed, hash: hashPuzzle(puzzle.heightMap) };
+    const hash = hashPuzzle(puzzle.heightMap);
+    logDeterministicVerification('Replay', round, seed, config.difficulty, hash);
+    return { puzzle, seedUsed: seed, hash };
+  }
+
+  // If a specific seed is forced (e.g., online multiplayer sync), use it directly
+  if (config.puzzleSeed !== undefined) {
+    const puzzle = createPuzzleForConfig(config, round, config.puzzleSeed);
+    const hash = hashPuzzle(puzzle.heightMap);
+    logDeterministicVerification('Online', round, config.puzzleSeed, config.difficulty, hash);
+    return { puzzle, seedUsed: config.puzzleSeed, hash };
+  }
+
+  // Enforce engine contract for Online Multiplayer
+  if (config.gameMode === GameMode.ONLINE_MULTIPLAYER) {
+    console.error(`[Deterministic Validation Error] Missing puzzleSeed for Online Multiplayer round ${round}`);
+    throw new Error('Deterministic puzzle generation failed: Online Multiplayer requires a synchronized puzzleSeed.');
   }
 
   // Otherwise, generate a unique puzzle not in recent history
@@ -48,6 +64,7 @@ export function generatePuzzleForRound(
     const hash = hashPuzzle(puzzle.heightMap);
     
     if (!puzzleHashHistory.includes(hash)) {
+      logDeterministicVerification('Random', round, seed, config.difficulty, hash);
       return { puzzle, seedUsed: seed, hash };
     }
     attempts++;
@@ -56,11 +73,24 @@ export function generatePuzzleForRound(
   // Fallback if we can't find a unique one
   const fallbackSeed = generateSeed();
   const fallbackPuzzle = createPuzzleForConfig(config, round, fallbackSeed);
+  const hash = hashPuzzle(fallbackPuzzle.heightMap);
+  logDeterministicVerification('Random (Fallback)', round, fallbackSeed, config.difficulty, hash);
   return {
     puzzle: fallbackPuzzle,
     seedUsed: fallbackSeed,
-    hash: hashPuzzle(fallbackPuzzle.heightMap),
+    hash,
   };
+}
+
+function logDeterministicVerification(source: string, round: number, seed: number, difficulty: string, hash: string) {
+  if (import.meta.env.DEV) {
+    console.log('[Deterministic Verification]');
+    console.log(`Generation Source: ${source}`);
+    console.log(`Round: ${round}`);
+    console.log(`Seed: ${seed}`);
+    console.log(`Difficulty: ${difficulty}`);
+    console.log(`Puzzle Hash: ${hash}`);
+  }
 }
 
 function createPuzzleForConfig(config: GameConfig, round: number, seed: number): Puzzle {
@@ -139,5 +169,6 @@ export function getNextDifficultyLevel(current: Difficulty): Difficulty {
     case Difficulty.EASY:   return Difficulty.MEDIUM;
     case Difficulty.MEDIUM: return Difficulty.HARD;
     case Difficulty.HARD:   return Difficulty.HARD; // already max
+    default:                return current;
   }
 }

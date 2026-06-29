@@ -323,6 +323,13 @@ function StepperControl({
   );
 }
 
+const Key = ({ k, action }: { k: string; action: string }) => (
+  <div className="w-12 h-12 border-2 border-black bg-gray-50 flex flex-col items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+    <span className="text-[10px] font-bold text-gray-500 uppercase leading-none">{action}</span>
+    <span className="text-sm font-bold text-black leading-none mt-1.5">{k}</span>
+  </div>
+);
+
 function MiniDPad({
   up,
   left,
@@ -336,13 +343,6 @@ function MiniDPad({
   right: { key: string; action: string };
   submit: { key: string; action: string };
 }) {
-  const Key = ({ k, action }: { k: string; action: string }) => (
-    <div className="w-12 h-12 border-2 border-black bg-gray-50 flex flex-col items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-      <span className="text-[10px] font-bold text-gray-500 uppercase leading-none">{action}</span>
-      <span className="text-sm font-bold text-black leading-none mt-1.5">{k}</span>
-    </div>
-  );
-
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="grid grid-cols-3 grid-rows-3 gap-2">

@@ -89,9 +89,10 @@ describe('multiplayer match logic', () => {
       numberOfRounds: 3,
       displayTimeMode: DisplayMode.FIXED,
       initialDisplayTime: 10,
-      maximumAnswerTime: 15,
+      maximumAnswerTime: 10,
       difficulty: Difficulty.EASY,
-      maximumStackHeight: 2,
+      maximumStackHeight: 3,
+      enableEarlyProgression: false,
     };
 
     it('determines winner correctly at end of match', () => {

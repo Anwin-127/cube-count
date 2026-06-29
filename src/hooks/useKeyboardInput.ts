@@ -4,6 +4,7 @@ import { InputAction } from '../input/inputActions';
 import { DEFAULT_KEY_BINDINGS } from '../config/keyBindings';
 import { useGameStore } from '../store/gameStore';
 import { GamePhase } from '../models/GamePhase';
+import { GameMode } from '../models/GameMode';
 
 /**
  * React hook that initializes the Input Manager and routes
@@ -29,36 +30,39 @@ export function useKeyboardInput(): void {
 
       // Player input is only accepted during the answer phase
       if (store.phase === GamePhase.ANSWER_PHASE) {
+        const isOnline = store.config.gameMode === GameMode.ONLINE_MULTIPLAYER;
+        const localId = isOnline ? (store.playerUid === store.onlineHostUid ? 'player1' : 'player2') : null;
+
         switch (action) {
           case InputAction.PLAYER1_INCREMENT:
-            store.incrementAnswer('player1', 1);
+            store.incrementAnswer(isOnline ? localId! : 'player1', 1);
             break;
           case InputAction.PLAYER1_INCREMENT_TEN:
-            store.incrementAnswer('player1', 10);
+            store.incrementAnswer(isOnline ? localId! : 'player1', 10);
             break;
           case InputAction.PLAYER1_DECREMENT:
-            store.decrementAnswer('player1', 1);
+            store.decrementAnswer(isOnline ? localId! : 'player1', 1);
             break;
           case InputAction.PLAYER1_DECREMENT_TEN:
-            store.decrementAnswer('player1', 10);
+            store.decrementAnswer(isOnline ? localId! : 'player1', 10);
             break;
           case InputAction.PLAYER1_SUBMIT:
-            store.submitAnswer('player1');
+            store.submitAnswer(isOnline ? localId! : 'player1');
             break;
           case InputAction.PLAYER2_INCREMENT:
-            store.incrementAnswer('player2', 1);
+            if (!isOnline) store.incrementAnswer('player2', 1);
             break;
           case InputAction.PLAYER2_INCREMENT_TEN:
-            store.incrementAnswer('player2', 10);
+            if (!isOnline) store.incrementAnswer('player2', 10);
             break;
           case InputAction.PLAYER2_DECREMENT:
-            store.decrementAnswer('player2', 1);
+            if (!isOnline) store.decrementAnswer('player2', 1);
             break;
           case InputAction.PLAYER2_DECREMENT_TEN:
-            store.decrementAnswer('player2', 10);
+            if (!isOnline) store.decrementAnswer('player2', 10);
             break;
           case InputAction.PLAYER2_SUBMIT:
-            store.submitAnswer('player2');
+            if (!isOnline) store.submitAnswer('player2');
             break;
           default:
             break;

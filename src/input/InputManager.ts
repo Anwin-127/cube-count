@@ -56,6 +56,16 @@ export class InputManager {
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
+    // Ignore input if the user is typing in a text field
+    const target = event.target as HTMLElement;
+    if (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    ) {
+      return;
+    }
+
     const action = this.keyBindings[event.code];
 
     if (action !== undefined && this.actionHandler) {

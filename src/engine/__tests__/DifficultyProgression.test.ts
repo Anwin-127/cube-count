@@ -17,6 +17,7 @@ const baseConfig: GameConfig = {
   maximumAnswerTime: 15,
   difficulty: Difficulty.EASY,
   maximumStackHeight: 2,
+  enableEarlyProgression: false,
 };
 
 describe('getNextDifficultyLevel', () => {

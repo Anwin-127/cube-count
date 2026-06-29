@@ -24,14 +24,19 @@ import { GamePhase } from '../models/GamePhase';
  *   └─────────────────────────────────────────────────┘
  */
 const VALID_TRANSITIONS: Record<GamePhase, readonly GamePhase[]> = {
-  [GamePhase.HOME]: [GamePhase.SETTINGS],
+  [GamePhase.HOME]: [GamePhase.SETTINGS, GamePhase.ONLINE_MENU],
   [GamePhase.SETTINGS]: [GamePhase.HOME, GamePhase.GENERATING_PUZZLE],
+  [GamePhase.ONLINE_MENU]: [GamePhase.HOME, GamePhase.WAITING_ROOM],
+  [GamePhase.WAITING_ROOM]: [GamePhase.HOME, GamePhase.GENERATING_PUZZLE, GamePhase.ONLINE_SYNCHRONIZING],
+  [GamePhase.ONLINE_SYNCHRONIZING]: [GamePhase.ONLINE_COUNTDOWN],
+  [GamePhase.ONLINE_COUNTDOWN]: [GamePhase.DISPLAYING_PUZZLE],
   [GamePhase.GENERATING_PUZZLE]: [GamePhase.DISPLAYING_PUZZLE],
   [GamePhase.DISPLAYING_PUZZLE]: [GamePhase.ANSWER_PHASE],
   [GamePhase.ANSWER_PHASE]: [GamePhase.VALIDATING],
   [GamePhase.VALIDATING]: [GamePhase.ROUND_RESULTS],
   [GamePhase.ROUND_RESULTS]: [
     GamePhase.GENERATING_PUZZLE,
+    GamePhase.DISPLAYING_PUZZLE,
     GamePhase.FINAL_RESULTS,
   ],
   [GamePhase.FINAL_RESULTS]: [GamePhase.HOME, GamePhase.SETTINGS],

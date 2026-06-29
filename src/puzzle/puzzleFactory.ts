@@ -110,12 +110,12 @@ export function createPuzzle(config: PuzzleGenerationConfig): Puzzle {
 }
 
 function buildPuzzleObject(
-  result: any,
+  result: { heightMap: readonly (readonly number[])[]; shapeFamily: string },
   config: PuzzleGenerationConfig,
   effectiveSeed: number,
   totalCubes: number,
   maximumHeight: number,
-  analysis: any,
+  analysis: { score: number; hiddenCubeEstimate: number },
   attempt: number,
 ): Puzzle {
   const metadata: PuzzleMetadata = Object.freeze({
@@ -129,7 +129,7 @@ function buildPuzzleObject(
   });
 
   const frozenHeightMap = Object.freeze(
-    result.heightMap.map((row: number[]) => Object.freeze([...row])),
+    result.heightMap.map((row: readonly number[]) => Object.freeze([...row])),
   );
 
   return Object.freeze({

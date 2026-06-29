@@ -11,6 +11,7 @@ export type PlayerId = 'player1' | 'player2';
  */
 export interface PlayerState {
   readonly id: PlayerId;
+  displayName?: string;
   currentAnswer: number;
   hasSubmitted: boolean;
   /** Time in seconds when the player submitted. Null if not yet submitted. */

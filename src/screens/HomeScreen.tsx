@@ -24,6 +24,11 @@ export function HomeScreen() {
     goToSettings();
   };
 
+  const handleOnline = () => {
+    updateConfig({ gameMode: GameMode.ONLINE_MULTIPLAYER });
+    useGameStore.getState().goToOnlineMenu();
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 gap-10">
       {/* Logo / wordmark */}
@@ -54,7 +59,14 @@ export function HomeScreen() {
           onClick={handlePlay}
           className="geo-button-secondary w-full py-4 text-lg"
         >
-          PLAY
+          LOCAL VS
+        </button>
+        <button
+          id="btn-online"
+          onClick={handleOnline}
+          className="geo-button-secondary w-full py-4 text-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200"
+        >
+          ONLINE VS
         </button>
       </div>
 

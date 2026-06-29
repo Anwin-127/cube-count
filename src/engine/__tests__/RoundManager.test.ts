@@ -22,26 +22,30 @@ const practiceConfig: GameConfig = {
   numberOfRounds: 5,
 };
 
+const mockConfig: GameConfig = {
+  ...DEFAULT_GAME_CONFIG,
+  maximumStackHeight: 5,
+};
+
 describe('RoundManager', () => {
   describe('generatePuzzleForRound', () => {
     it('generates a valid puzzle', () => {
-      const puzzle = generatePuzzleForRound(multiplayerConfig, 1);
-      expect(puzzle).toBeDefined();
+      const puzzle = generatePuzzleForRound(mockConfig, 1, []).puzzle;
       expect(puzzle.totalCubes).toBeGreaterThan(0);
-      expect(puzzle.heightMap.length).toBe(5);
+      expect(puzzle.heightMap.length).toBe(mockConfig.maximumStackHeight);
     });
 
     it('generates deterministic puzzles with a fixed seed', () => {
-      const config: GameConfig = { ...multiplayerConfig, puzzleSeed: 42 };
-      const puzzle1 = generatePuzzleForRound(config, 1);
-      const puzzle2 = generatePuzzleForRound(config, 1);
+      const config: GameConfig = { ...mockConfig, puzzleSeed: 42 };
+      const puzzle1 = generatePuzzleForRound(config, 1, []).puzzle;
+      const puzzle2 = generatePuzzleForRound(config, 1, []).puzzle;
       expect(puzzle1.heightMap).toEqual(puzzle2.heightMap);
     });
 
     it('generates different puzzles for different rounds with a fixed seed', () => {
-      const config: GameConfig = { ...multiplayerConfig, puzzleSeed: 42 };
-      const puzzle1 = generatePuzzleForRound(config, 1);
-      const puzzle2 = generatePuzzleForRound(config, 2);
+      const config: GameConfig = { ...mockConfig, puzzleSeed: 42 };
+      const puzzle1 = generatePuzzleForRound(config, 1, []).puzzle;
+      const puzzle2 = generatePuzzleForRound(config, 2, []).puzzle;
       expect(puzzle1.heightMap).not.toEqual(puzzle2.heightMap);
     });
   });

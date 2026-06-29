@@ -3,6 +3,8 @@ import { useGameStore } from '../store/gameStore';
 import { GamePhase } from '../models/GamePhase';
 import { GameMode } from '../models/GameMode';
 import { PuzzleCanvas } from '../components/PuzzleCanvas';
+// Removed unused Header import
+import { ReconnectOverlay } from './ReconnectOverlay';
 import { DebugOverlay } from '../components/DebugOverlay';
 import { useDebugOverlay } from '../hooks/useDebugOverlay';
 import { useTimer } from '../hooks/useTimer';
@@ -25,6 +27,16 @@ export function GameplayScreen() {
 
   const timeRemaining = useTimer();
   const isPractice = config.gameMode === GameMode.PRACTICE;
+  const isOnline = config.gameMode === GameMode.ONLINE_MULTIPLAYER;
+  const isSinglePanel = isPractice || isOnline;
+  
+  const playerUid = useGameStore((s) => s.playerUid);
+  const onlineHostUid = useGameStore((s) => s.onlineHostUid);
+
+  const localPlayer = isPractice 
+    ? players[0] 
+    : (isOnline ? (playerUid === onlineHostUid ? players[0] : players[1]) : null);
+
   const player1 = players[0];
   const player2 = players[1];
 
@@ -34,10 +46,11 @@ export function GameplayScreen() {
   
   const p1Submitted = player1?.hasSubmitted ?? false;
   const p2Submitted = player2?.hasSubmitted ?? false;
+  const localSubmitted = localPlayer?.hasSubmitted ?? false;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F7F7F7]">
-      {/* ── Top bar ─────────────────────────────────────────────── */}
+      <ReconnectOverlay />
       <header className="flex items-center justify-between px-8 pt-6 pb-2">
         <div className="text-sm font-bold text-black uppercase tracking-wider flex flex-col">
           <span>{isPractice ? 'Practice Mode' : 'Match'}</span>
@@ -65,7 +78,7 @@ export function GameplayScreen() {
       <div className="flex-1 flex flex-col lg:flex-row items-center justify-center px-6 py-4 gap-12 overflow-hidden">
         
         {/* Player 1 Panel (Multiplayer left side) */}
-        {!isPractice && player1 && (
+        {config.gameMode === GameMode.LOCAL_MULTIPLAYER && player1 && (
           <div className="w-full max-w-[280px]">
             <AnswerPanel
               title="Player 1"
@@ -99,6 +112,16 @@ export function GameplayScreen() {
             <div className="absolute inset-0 flex items-center justify-center z-10 bg-white">
               <div className="text-center text-black font-bold uppercase tracking-widest text-xl animate-pulse">
                 Generating...
+              </div>
+            </div>
+          )}
+
+          {/* Online countdown state */}
+          {phase === GamePhase.ONLINE_COUNTDOWN && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-white/95 backdrop-blur-sm">
+              <p className="text-sm font-bold text-[#555] uppercase tracking-widest mb-4">Ready</p>
+              <div className="text-8xl font-bold text-black tabular-nums animate-[pulse_1s_ease-in-out_infinite]">
+                 {timeRemaining !== null && timeRemaining > 0 ? Math.ceil(timeRemaining) : 'GO!'}
               </div>
             </div>
           )}
@@ -139,20 +162,21 @@ export function GameplayScreen() {
           )}
         </div>
 
-        {/* Right Panel: Player 1 (Practice) or Player 2 (Multiplayer) */}
+        {/* Right Panel: Player 1 (Practice), Local Player (Online Multi), or Player 2 (Local Multi) */}
         <div className="w-full max-w-[280px]">
-          {isPractice && player1 && (
+          {isSinglePanel && localPlayer && (
             <AnswerPanel
-              title="Practice"
-              answer={player1.currentAnswer}
-              submitted={p1Submitted}
+              title={isPractice ? 'Practice' : (localPlayer.id === 'player1' ? 'Player 1' : 'Player 2')}
+              answer={localPlayer.currentAnswer}
+              submitted={localSubmitted}
               isActive={isAnswerPhase}
-              recordedTime={player1.answerTime}
-              onIncrement={() => incrementAnswer('player1', 1)}
-              onIncrementTen={() => incrementAnswer('player1', 10)}
-              onDecrement={() => decrementAnswer('player1')}
-              onDecrementTen={() => decrementAnswer('player1', 10)}
-              onSubmit={() => submitAnswer('player1')}
+              recordedTime={localPlayer.answerTime}
+              statusMessage={isOnline && localSubmitted ? 'Waiting for opponent...' : undefined}
+              onIncrement={() => incrementAnswer(localPlayer.id, 1)}
+              onIncrementTen={() => incrementAnswer(localPlayer.id, 10)}
+              onDecrement={() => decrementAnswer(localPlayer.id)}
+              onDecrementTen={() => decrementAnswer(localPlayer.id, 10)}
+              onSubmit={() => submitAnswer(localPlayer.id)}
               keys={{
                 up: { key: 'W', label: '+1' },
                 left: { key: 'A', label: '-10' },
@@ -162,7 +186,7 @@ export function GameplayScreen() {
               }}
             />
           )}
-          {!isPractice && player2 && (
+          {config.gameMode === GameMode.LOCAL_MULTIPLAYER && player2 && (
             <AnswerPanel
               title="Player 2"
               answer={player2.currentAnswer}
@@ -261,6 +285,7 @@ interface AnswerPanelProps {
   submitted: boolean;
   isActive: boolean;
   recordedTime?: number | null;
+  statusMessage?: string;
   onIncrement: () => void;
   onIncrementTen: () => void;
   onDecrement: () => void;
@@ -281,6 +306,7 @@ function AnswerPanel({
   submitted,
   isActive,
   recordedTime,
+  statusMessage,
   onIncrement,
   onIncrementTen,
   onDecrement,
@@ -304,8 +330,8 @@ function AnswerPanel({
           <p className="text-6xl font-bold text-black tabular-nums mb-6">
             {answer}
           </p>
-          <div className="bg-black text-[#B8FF2C] font-bold uppercase tracking-wider text-sm px-4 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#B8FF2C]">
-            Locked: {recordedTime?.toFixed(2)}s
+          <div className="bg-black text-[#B8FF2C] font-bold uppercase tracking-wider text-sm px-4 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#B8FF2C] text-center">
+            {statusMessage ? statusMessage : `Locked: ${recordedTime?.toFixed(2)}s`}
           </div>
         </div>
       ) : (

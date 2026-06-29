@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { GamePhase } from '../models/GamePhase';
+import { TimeService } from '../online/TimeService';
 
 /** Phases that require the game loop to run. */
 const ACTIVE_PHASES: readonly GamePhase[] = [
+  GamePhase.ONLINE_SYNCHRONIZING,
+  GamePhase.ONLINE_COUNTDOWN,
   GamePhase.GENERATING_PUZZLE,
   GamePhase.DISPLAYING_PUZZLE,
   GamePhase.ANSWER_PHASE,
@@ -49,7 +52,10 @@ export function useGameLoop(): void {
         return;
       }
 
-      useGameStore.getState().tick(Date.now());
+      const isDisconnected = useGameStore.getState().onlineDisconnectedUid !== null;
+      if (!isDisconnected) {
+        useGameStore.getState().tick(TimeService.getServerTime());
+      }
       rafRef.current = requestAnimationFrame(tick);
     };
 

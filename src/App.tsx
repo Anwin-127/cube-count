@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from './store/gameStore';
 import { GamePhase } from './models/GamePhase';
 import { useKeyboardInput } from './hooks/useKeyboardInput';
@@ -8,6 +8,12 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { GameplayScreen } from './screens/GameplayScreen';
 import { RoundResultsScreen } from './screens/RoundResultsScreen';
 import { FinalResultsScreen } from './screens/FinalResultsScreen';
+import { OnlineMenuScreen } from './screens/OnlineMenuScreen';
+import { WaitingRoomScreen } from './screens/WaitingRoomScreen';
+import { SynchronizingScreen } from './screens/SynchronizingScreen';
+import { AuthService } from './online/AuthService';
+import { OnlineGameplayService } from './online/OnlineGameplayService';
+import { TimeService } from './online/TimeService';
 
 /**
  * Root application component.
@@ -26,14 +32,39 @@ function App() {
   useGameLoop();
 
   const phase = useGameStore((s) => s.phase);
-  const [devRoute, setDevRoute] = useState(window.location.hash);
+  const [inviteCode, setInviteCode] = useState<string | undefined>();
 
-  // Listen for hash changes (could be used for future routing)
+  // Check for invite link on load
   useEffect(() => {
-    const handleHashChange = () => setDevRoute(window.location.hash);
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    const path = window.location.pathname;
+    if (path.startsWith('/play/')) {
+      const code = path.split('/play/')[1]?.toUpperCase();
+      if (code && code.length === 6) {
+        setTimeout(() => setInviteCode(code), 0);
+        // Clean up URL without reloading
+        window.history.replaceState({}, '', '/');
+        // Force phase transition if not already handled
+        useGameStore.getState().goToOnlineMenu();
+      }
+    }
   }, []);
+
+  // Initialize Firebase anonymous auth and TimeService
+  useEffect(() => {
+    TimeService.init();
+    AuthService.signIn().then((user) => {
+      if (user) {
+        useGameStore.getState().setOnlineIdentity(user.uid, ''); // Name is set later
+      }
+    });
+  }, []);
+
+  const activeRoomId = useGameStore((s) => s.activeRoomId);
+  useEffect(() => {
+    if (activeRoomId) {
+      return OnlineGameplayService.listenToMatchState(activeRoomId);
+    }
+  }, [activeRoomId]);
 
   const renderScreen = () => {
     switch (phase) {
@@ -43,6 +74,16 @@ function App() {
       case GamePhase.SETTINGS:
         return <SettingsScreen />;
 
+      case GamePhase.ONLINE_MENU:
+        return <OnlineMenuScreen initialJoinCode={inviteCode} />;
+
+      case GamePhase.WAITING_ROOM:
+        return <WaitingRoomScreen />;
+
+      case GamePhase.ONLINE_SYNCHRONIZING:
+        return <SynchronizingScreen />;
+
+      case GamePhase.ONLINE_COUNTDOWN:
       case GamePhase.GENERATING_PUZZLE:
       case GamePhase.DISPLAYING_PUZZLE:
       case GamePhase.ANSWER_PHASE:

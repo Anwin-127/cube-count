@@ -3,6 +3,7 @@ import { determineMatchWinner } from '../engine/StatisticsManager';
 
 export function FinalResultsScreen() {
   const config = useGameStore((s) => s.config);
+  const players = useGameStore((s) => s.players);
   const matchStatistics = useGameStore((s) => s.matchStatistics);
   const continueFromFinalResults = useGameStore((s) => s.continueFromFinalResults);
   const resetToHome = useGameStore((s) => s.resetToHome);
@@ -11,7 +12,7 @@ export function FinalResultsScreen() {
 
   const winnerId = determineMatchWinner(matchStatistics);
   const isDraw = winnerId === 'DRAW';
-  const winnerIsP1 = winnerId === 'player1';
+  const winnerName = winnerId === 'DRAW' ? '' : (players.find(p => p.id === winnerId)?.displayName || (winnerId === 'player1' ? 'Player 1' : 'Player 2'));
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#F7F7F7] px-6 py-12 gap-8">
@@ -28,7 +29,7 @@ export function FinalResultsScreen() {
           Match Complete
         </p>
         <p className="text-5xl font-bold tracking-tight mb-2 uppercase">
-          {isDraw ? 'It\'s a Draw!' : `Player ${winnerIsP1 ? '1' : '2'} Wins!`}
+          {isDraw ? 'It\'s a Draw!' : `${winnerName} Wins!`}
         </p>
         <p className="text-sm font-bold text-gray-800 uppercase tracking-widest">
           After {matchStatistics.completedRounds} rounds
@@ -39,11 +40,12 @@ export function FinalResultsScreen() {
       <div className="w-full max-w-lg geo-panel-light flex flex-col">
         <div className="grid grid-cols-2 divide-x-2 divide-black">
           {matchStatistics.playerStatistics.map((ps) => {
-            const isP1 = ps.playerId === 'player1';
+            const pState = players.find(p => p.id === ps.playerId);
+            const displayName = pState?.displayName || (ps.playerId === 'player1' ? 'Player 1' : 'Player 2');
             return (
               <div key={ps.playerId} className="p-6 bg-white">
                 <p className="text-sm font-bold text-black uppercase tracking-widest mb-6 text-center">
-                  Player {isP1 ? '1' : '2'}
+                  {displayName}
                 </p>
                 
                 <div className="space-y-4">

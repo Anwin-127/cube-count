@@ -27,8 +27,9 @@ import {
   getNextDifficultyLevel,
   DIFFICULTY_PROGRESSION_THRESHOLD,
 } from '../engine';
-import { generateSeed } from '../puzzle';
+// generateSeed is removed
 import * as AnswerManager from '../engine/AnswerManager';
+import { TimeService } from '../online/TimeService';
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -59,6 +60,8 @@ export interface GameState {
   displayStartTime: number | null;
   /** Timestamp when the answer phase started. */
   answerStartTime: number | null;
+  /** Timestamp when the validating phase started. */
+  validatingStartTime: number | null;
   /** Display duration for the current round (seconds). */
   currentDisplayDuration: number;
   /**
@@ -69,6 +72,22 @@ export interface GameState {
   difficultyJustAdvanced: boolean;
   /** History of recently generated puzzle hashes. */
   puzzleHashHistory: string[];
+  /** The player's display name for online play. */
+  displayName: string | null;
+  /** The player's Firebase UID. */
+  playerUid: string | null;
+  /** The current active online room ID. */
+  activeRoomId: string | null;
+  /** The current active online room code. */
+  activeRoomCode: string | null;
+  /** Host UID for online match. */
+  onlineHostUid: string | null;
+  /** Guest UID for online match. */
+  onlineGuestUid: string | null;
+  /** Disconnected Player UID. */
+  onlineDisconnectedUid: string | null;
+  /** Track which UIDs have clicked Continue in the current online results screen. */
+  onlineContinueReady: Record<string, boolean> | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +113,24 @@ export interface GameActions {
   goToSettings: () => void;
   /** Navigate back to HOME from SETTINGS. */
   goToHome: () => void;
+  /** Navigate to ONLINE_MENU from HOME. */
+  goToOnlineMenu: () => void;
+  /** Navigate to WAITING_ROOM. */
+  goToWaitingRoom: () => void;
+  /** Set online identity. */
+  setOnlineIdentity: (uid: string, name: string) => void;
+  /** Set active room. */
+  setActiveRoom: (roomId: string, code: string, hostUid: string, guestUid?: string) => void;
+  /** Set player names for online mode. */
+  setPlayerNames: (p1Name: string, p2Name: string) => void;
+  /** Clear active room. */
+  clearActiveRoom: () => void;
+  
+  // -- Online Actions --
+  /** Apply round information from Firebase. */
+  startOnlineRound: (roundNumber: number, seed: number, difficulty: string, displayStartTime: number | null) => void;
+  /** Apply player submission from Firebase. */
+  applyOnlineSubmission: (playerId: string, answer: number, elapsed: number) => void;
 
   // -- Player actions --
   incrementAnswer: (playerId: PlayerId, amount?: number) => void;
@@ -123,9 +160,18 @@ function createInitialState(): GameState {
     practiceStatistics: null,
     displayStartTime: null,
     answerStartTime: null,
+    validatingStartTime: null,
     currentDisplayDuration: DEFAULT_GAME_CONFIG.initialDisplayTime,
     difficultyJustAdvanced: false,
     puzzleHashHistory: [],
+    displayName: null,
+    playerUid: null,
+    activeRoomId: null,
+    activeRoomCode: null,
+    onlineHostUid: null,
+    onlineGuestUid: null,
+    onlineDisconnectedUid: null,
+    onlineContinueReady: null,
   };
 }
 
@@ -202,8 +248,10 @@ export const useGameStore = create<GameStore>()(
             practiceStatistics,
             displayStartTime: null,
             answerStartTime: null,
+            validatingStartTime: null,
             currentDisplayDuration: displayDuration,
             difficultyJustAdvanced: false,
+            puzzleHashHistory: newHistory,
           },
           false,
           'startMatch',
@@ -218,6 +266,11 @@ export const useGameStore = create<GameStore>()(
           state.phase === GamePhase.GENERATING_PUZZLE &&
           state.currentPuzzle !== null
         ) {
+          // If we are waiting for an online countdown, we DO NOT transition here automatically.
+          if (state.config.gameMode === GameMode.ONLINE_MULTIPLAYER) {
+            return;
+          }
+          
           set(
             {
               phase: transition(
@@ -230,6 +283,18 @@ export const useGameStore = create<GameStore>()(
             'tick:startDisplay',
           );
           return;
+        }
+
+        // ONLINE_COUNTDOWN → DISPLAYING_PUZZLE (auto: timer reached)
+        if (state.phase === GamePhase.ONLINE_COUNTDOWN) {
+           if (now >= state.displayStartTime!) {
+              set(
+                { phase: transition(state.phase, GamePhase.DISPLAYING_PUZZLE) },
+                false,
+                'tick:startDisplayOnline'
+              );
+           }
+           return;
         }
 
         // DISPLAYING_PUZZLE → ANSWER_PHASE (auto: display timer expired)
@@ -265,21 +330,13 @@ export const useGameStore = create<GameStore>()(
           const allSubmitted = allPlayersSubmitted(state.players);
 
           if (timerExpired || allSubmitted) {
-            // Lock unsubmitted players on timeout
-            const finalPlayers = timerExpired
-              ? lockAllUnsubmitted(
-                  state.players,
-                  state.config.maximumAnswerTime,
-                )
-              : state.players;
-
             set(
               {
                 phase: transition(
                   state.phase,
                   GamePhase.VALIDATING,
                 ),
-                players: finalPlayers,
+                validatingStartTime: now,
               },
               false,
               timerExpired
@@ -290,15 +347,26 @@ export const useGameStore = create<GameStore>()(
           }
         }
 
-        // VALIDATING → ROUND_RESULTS (auto: instant validation)
+        // VALIDATING → ROUND_RESULTS (auto: instant validation, or delayed for online)
         if (state.phase === GamePhase.VALIDATING) {
-          const correctAnswer = state.currentPuzzle?.totalCubes ?? 0;
-          const roundResult = validateRound(
-            state.players,
-            correctAnswer,
-            state.currentRound,
-            state.config.maximumAnswerTime,
-          );
+          const isOnline = state.config.gameMode === GameMode.ONLINE_MULTIPLAYER;
+          const delayMs = isOnline ? 1500 : 0;
+
+          if (now >= state.validatingStartTime! + delayMs) {
+            // Lock unsubmitted players now that the buffer is complete
+            const finalPlayers = lockAllUnsubmitted(state.players, state.config.maximumAnswerTime);
+
+            const correctAnswer = state.currentPuzzle?.totalCubes ?? 0;
+            const roundResult = validateRound(
+              finalPlayers,
+              correctAnswer,
+              state.currentRound,
+              state.config.maximumAnswerTime,
+            );
+
+            if (import.meta.env.DEV && state.config.gameMode === GameMode.ONLINE_MULTIPLAYER) {
+              console.log('[Sync] Round Validated:', roundResult);
+            }
 
           // Update statistics
           let { matchStatistics, practiceStatistics, config } = state;
@@ -341,7 +409,7 @@ export const useGameStore = create<GameStore>()(
           }
 
           // Update player validation state
-          const validatedPlayers = state.players.map((p) => {
+          const validatedPlayers = finalPlayers.map((p) => {
             const result = roundResult.playerResults.find(
               (r) => r.playerId === p.id,
             );
@@ -371,6 +439,7 @@ export const useGameStore = create<GameStore>()(
             'tick:validated',
           );
           return;
+          }
         }
       },
 
@@ -381,6 +450,12 @@ export const useGameStore = create<GameStore>()(
 
         // Check if this was the last round
         if (isLastRound(state.config, state.currentRound, state.matchStatistics)) {
+          // If online and host, we could trigger endMatch here
+          if (state.config.gameMode === GameMode.ONLINE_MULTIPLAYER && state.activeRoomId && state.playerUid === state.onlineHostUid) {
+             import('../online/OnlineGameplayService').then(m => {
+               m.OnlineGameplayService.endMatch(state.activeRoomId!);
+             });
+          }
           set(
             {
               phase: transition(
@@ -394,8 +469,17 @@ export const useGameStore = create<GameStore>()(
           return;
         }
 
-        // Start next round
         const nextRound = state.currentRound + 1;
+
+        if (state.config.gameMode === GameMode.ONLINE_MULTIPLAYER && state.activeRoomId && state.playerUid) {
+          import('../online/OnlineGameplayService').then(m => {
+             m.OnlineGameplayService.setContinueReady(state.activeRoomId!, state.playerUid!);
+          });
+          // Do not transition FSM locally. Wait for sync state change.
+          return;
+        }
+
+        // --- Local Gameplay Logic ---
         const { puzzle, seedUsed, hash } = generatePuzzleForRound(
           state.config,
           nextRound,
@@ -432,6 +516,7 @@ export const useGameStore = create<GameStore>()(
             players: resetPlayers,
             displayStartTime: null,
             answerStartTime: null,
+            validatingStartTime: null,
             currentDisplayDuration: displayDuration,
             difficultyJustAdvanced: false,
             puzzleHashHistory: newHistory,
@@ -447,7 +532,7 @@ export const useGameStore = create<GameStore>()(
         const state = get();
         if (state.phase !== GamePhase.FINAL_RESULTS) return;
         
-        let newConfig = { ...state.config };
+        const newConfig = { ...state.config };
         if (replaySameSeed) {
            if (state.matchStatistics && state.matchStatistics.seedsUsed.length > 0) {
              newConfig.replaySeeds = [...state.matchStatistics.seedsUsed];
@@ -483,11 +568,154 @@ export const useGameStore = create<GameStore>()(
         );
       },
 
+      goToOnlineMenu: () => {
+        const { phase, config } = get();
+        set(
+          { phase: transition(phase, GamePhase.ONLINE_MENU), config: { ...config, gameMode: GameMode.ONLINE_MULTIPLAYER } },
+          false,
+          'goToOnlineMenu',
+        );
+      },
+
+      goToWaitingRoom: () => {
+        const { phase, config } = get();
+        set(
+          { phase: transition(phase, GamePhase.WAITING_ROOM), config: { ...config, gameMode: GameMode.ONLINE_MULTIPLAYER } },
+          false,
+          'goToWaitingRoom',
+        );
+      },
+
+      setOnlineIdentity: (uid, name) => {
+        set({ playerUid: uid, displayName: name }, false, 'setOnlineIdentity');
+      },
+
+      setActiveRoom: (roomId, code, hostUid, guestUid) => {
+        const config = get().config;
+        set({ activeRoomId: roomId, activeRoomCode: code, onlineHostUid: hostUid, onlineGuestUid: guestUid || null, config: { ...config, gameMode: GameMode.ONLINE_MULTIPLAYER } }, false, 'setActiveRoom');
+      },
+
+      setPlayerNames: (p1Name, p2Name) => {
+        const state = get();
+        const updatedPlayers = state.players.map(p => {
+           if (p.id === 'player1') return { ...p, displayName: p1Name };
+           if (p.id === 'player2') return { ...p, displayName: p2Name };
+           return p;
+        });
+        set({ players: updatedPlayers }, false, 'setPlayerNames');
+      },
+
+      clearActiveRoom: () => {
+        set({ activeRoomId: null, activeRoomCode: null, onlineHostUid: null, onlineGuestUid: null }, false, 'clearActiveRoom');
+      },
+
+      startOnlineRound: (roundNumber, seed, difficultyStr, displayStart) => {
+        const state = get();
+        const difficulty = difficultyStr as Difficulty;
+        
+        const config = { ...state.config, difficulty };
+        
+        // Ensure players are reset, and always force 2 players for online mode
+        const resetPlayers = state.players.length === 2 
+           ? state.players.map((p) => createInitialPlayerState(p.id))
+           : [createInitialPlayerState('player1'), createInitialPlayerState('player2')];
+
+        // Restore display names if we had them
+        const p1Name = state.players.find(p => p.id === 'player1')?.displayName;
+        const p2Name = state.players.find(p => p.id === 'player2')?.displayName;
+        if (p1Name) resetPlayers[0].displayName = p1Name;
+        if (p2Name) resetPlayers[1].displayName = p2Name;
+
+        const { puzzle, hash } = generatePuzzleForRound(
+          { ...config, puzzleSeed: seed },
+          roundNumber,
+          state.puzzleHashHistory,
+        );
+
+        const newHistory = [...state.puzzleHashHistory, hash].slice(-50);
+        
+        // Calculate display duration from the synced deadline and start time, 
+        // or just use the config default if not provided yet.
+        const displayDuration = getDisplayTimeForCurrentRound(config, roundNumber);
+        
+        // Wait for countdown phase to transition to DISPLAYING_PUZZLE natively
+        let phase: GamePhase = GamePhase.GENERATING_PUZZLE;
+        if (displayStart) {
+           phase = GamePhase.DISPLAYING_PUZZLE;
+        }
+
+        let matchStatistics = state.matchStatistics;
+        if (!matchStatistics && roundNumber === 1) {
+           matchStatistics = createMatchStats(['player1', 'player2'], config.numberOfRounds);
+           matchStatistics.seedsUsed = [seed];
+        } else if (matchStatistics && roundNumber > 1) {
+           matchStatistics = { ...matchStatistics, seedsUsed: [...matchStatistics.seedsUsed, seed] };
+        } else if (roundNumber === 1 && matchStatistics) {
+           matchStatistics.seedsUsed = [seed];
+        }
+
+        set(
+          {
+            phase,
+            config,
+            currentRound: roundNumber,
+            currentPuzzle: puzzle,
+            players: resetPlayers,
+            displayStartTime: displayStart,
+            answerStartTime: displayStart ? displayStart + (displayDuration * 1000) : null,
+            validatingStartTime: null,
+            currentDisplayDuration: displayDuration,
+            difficultyJustAdvanced: false,
+            puzzleHashHistory: newHistory,
+            matchStatistics,
+          },
+          false,
+          'startOnlineRound',
+        );
+      },
+
+      applyOnlineSubmission: (playerId, answer, elapsed) => {
+        const { phase, players, validatingStartTime } = get();
+        // Even if local phase is VALIDATING or ROUND_RESULTS, we might receive a late submission
+        // But let's apply it if the player hasn't submitted yet.
+        const player = players.find(p => p.id === playerId);
+        if (player && !player.hasSubmitted) {
+           const updatedPlayers = players.map(p => {
+             if (p.id === playerId) {
+               return { ...p, currentAnswer: answer, hasSubmitted: true, answerTime: elapsed };
+             }
+             return p;
+           });
+           
+           set(
+             { 
+               players: updatedPlayers,
+               // Automatically advance if everyone has submitted (and we are in ANSWER_PHASE)
+               phase: (phase === GamePhase.ANSWER_PHASE && AnswerManager.allPlayersSubmitted(updatedPlayers))
+                 ? transition(phase, GamePhase.VALIDATING)
+                 : phase,
+               validatingStartTime: (phase === GamePhase.ANSWER_PHASE && AnswerManager.allPlayersSubmitted(updatedPlayers))
+                 ? TimeService.getServerTime()
+                 : validatingStartTime,
+             }, 
+             false, 
+             'applyOnlineSubmission'
+           );
+        }
+      },
+
       // -- Player actions ----------------------------------------------------
 
       incrementAnswer: (playerId, amount = 1) => {
-        const { phase, players } = get();
+        const { phase, players, config, playerUid, onlineHostUid, onlineGuestUid } = get();
         if (phase !== GamePhase.ANSWER_PHASE) return;
+        
+        if (config.gameMode === GameMode.ONLINE_MULTIPLAYER && playerUid) {
+           const isLocalPlayer = (playerUid === onlineHostUid && playerId === 'player1') || 
+                                 (playerUid === onlineGuestUid && playerId === 'player2');
+           if (!isLocalPlayer) return;
+        }
+
         set(
           { players: AnswerManager.incrementAnswer(players, playerId, amount) },
           false,
@@ -496,8 +724,14 @@ export const useGameStore = create<GameStore>()(
       },
 
       decrementAnswer: (playerId, amount = 1) => {
-        const { phase, players } = get();
+        const { phase, players, config, playerUid, onlineHostUid, onlineGuestUid } = get();
         if (phase !== GamePhase.ANSWER_PHASE) return;
+        
+        if (config.gameMode === GameMode.ONLINE_MULTIPLAYER && playerUid) {
+           const isLocalPlayer = (playerUid === onlineHostUid && playerId === 'player1') || 
+                                 (playerUid === onlineGuestUid && playerId === 'player2');
+           if (!isLocalPlayer) return;
+        }
         set(
           { players: AnswerManager.decrementAnswer(players, playerId, amount) },
           false,
@@ -506,12 +740,32 @@ export const useGameStore = create<GameStore>()(
       },
 
       submitAnswer: (playerId) => {
-        const { phase, players, answerStartTime } = get();
+        const state = get();
+        const { phase, players, answerStartTime, config, activeRoomId, playerUid, currentRound, onlineHostUid, onlineGuestUid } = state;
         if (phase !== GamePhase.ANSWER_PHASE) return;
-        const elapsed = getElapsedSeconds(answerStartTime, Date.now());
+        const elapsed = getElapsedSeconds(answerStartTime, TimeService.getServerTime());
+        
+        const nextPlayers = AnswerManager.submitAnswer(players, playerId, elapsed);
+
+        if (config.gameMode === GameMode.ONLINE_MULTIPLAYER && activeRoomId && playerUid) {
+          const isLocalPlayer = (playerUid === onlineHostUid && playerId === 'player1') || 
+                                (playerUid === onlineGuestUid && playerId === 'player2');
+          
+          if (isLocalPlayer) {
+             const answer = nextPlayers.find(p => p.id === playerId)?.currentAnswer ?? 0;
+             import('../online/OnlineGameplayService').then(m => {
+               m.OnlineGameplayService.submitAnswer(activeRoomId, playerUid, answer, elapsed, currentRound);
+             });
+          }
+        }
+
         set(
           {
-            players: AnswerManager.submitAnswer(players, playerId, elapsed),
+            players: nextPlayers,
+            // Automatically advance if everyone has submitted
+            phase: AnswerManager.allPlayersSubmitted(nextPlayers)
+              ? transition(phase, GamePhase.VALIDATING)
+              : phase,
           },
           false,
           'submitAnswer',

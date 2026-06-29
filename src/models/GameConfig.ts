@@ -24,4 +24,6 @@ export interface GameConfig {
   readonly enableEarlyProgression: boolean;
   /** Exact sequence of seeds to use for a replay match. */
   readonly replaySeeds?: number[];
+  /** Optional seed used to generate puzzles for this match. */
+  readonly puzzleSeed?: number;
 }

@@ -160,20 +160,49 @@ Each folder should have a clearly defined purpose.
 
 The engine contains all gameplay logic.
 
-Responsibilities include:
-
-- Round management
-- Score calculation
-- Timing
-- State updates
-- Winner calculation
-- Rule enforcement
+Responsibilities- **Frontend**: React 18
+- **State Management**: Zustand
+- **Graphics/Rendering**: HTML5 Canvas (via custom rendering loop)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Build Tool**: Vite
+- **Online Backend**: Firebase Realtime Database
+- **Authentication**: Firebase Anonymous Authnforcement
 
 The engine should never render graphics.
 
 ---
 
-# 8. Renderer
+# 8. Online Architecture
+
+The online implementation utilizes **Firebase Realtime Database** and **Anonymous Authentication**.
+
+### Deterministic Lockstep Model
+Instead of continuously synchronizing the full game state, the architecture relies on **lockstep determinism**. Both clients run the exact same `Puzzle Engine` locally. The Host acts as the authority for match progression, generating the `puzzleSeed` and `displayStartTime`. 
+
+### Synchronization Flow
+1. **Match Start**: Host transitions room to `playing`.
+2. **Round Generation**: Host generates the round configuration (seed, difficulty) and writes it to `matchState/currentRoundInfo` in Firebase.
+3. **Event Catching**: The `OnlineGameplayService` on both clients observes the new round data and injects it into the local `gameStore`.
+4. **Local Execution**: The local FSM (`useGameLoop`) takes over, using the `TimeService` (synchronized with Firebase's server offset) to ensure precise timing. Both clients independently generate the exact same geometry.
+5. **Answer Submission**: Player submissions are pushed to `matchState/submissions`. Once both answers are present, the local game engine advances to the `VALIDATING` phase automatically.
+
+### Disconnect Handling
+The `PresenceService` leverages Firebase's `onDisconnect` hook to instantly detect connection drops. If a player disconnects, `useGameLoop` halts, freezing the match until the player returns or the 30-second abort timer expires.
+
+---
+
+# 9. Next Steps / Potential Evolutions
+
+The current architecture is highly decoupled, making future enhancements straightforward:
+
+1. **Enhanced Visuals**: The rendering layer can be rewritten in WebGL/Three.js without touching the game logic.
+2. **Additional Mechanics**: New block types or rules can be added to the Puzzle Engine and handled transparently by the game loop.
+3. **Advanced Multiplayer**: The lockstep online model can easily support spectator modes or replays because the game state is purely derived from initial seeds and timestamps.
+
+---
+
+# 10. Renderer
 
 The renderer is responsible only for drawing.
 
@@ -196,7 +225,7 @@ It simply renders data.
 
 ---
 
-# 9. Puzzle Generator
+# 11. Puzzle Generator
 
 The Puzzle Generator owns puzzle creation.
 
@@ -213,7 +242,7 @@ The Puzzle Generator should never know about players, timers, or UI.
 
 ---
 
-# 10. Input Manager
+# 12. Input Manager
 
 The Input Manager translates keyboard events into game actions.
 
@@ -239,7 +268,7 @@ This makes controls configurable without changing gameplay logic.
 
 ---
 
-# 11. Game State
+# 13. Game State
 
 The entire application should have a single source of truth.
 
@@ -256,7 +285,7 @@ No duplicate game state should exist elsewhere.
 
 ---
 
-# 12. Configuration
+# 14. Configuration
 
 Configuration should live in one location.
 
@@ -272,7 +301,7 @@ Gameplay systems should read from configuration rather than hardcoded values.
 
 ---
 
-# 13. Dependency Rules
+# 15. Dependency Rules
 
 Allowed dependencies:
 
@@ -316,7 +345,7 @@ The dependency graph should remain acyclic.
 
 ---
 
-# 14. Error Handling
+# 16. Error Handling
 
 All modules should fail gracefully.
 
@@ -328,7 +357,7 @@ Unexpected errors should be logged for debugging.
 
 ---
 
-# 15. Architecture Goals
+# 17. Architecture Goals
 
 The architecture should make it easy to add:
 
@@ -343,7 +372,7 @@ without rewriting existing systems.
 
 ---
 
-# 16. Game State Machine
+# 18. Game State Machine
 
 Cube Count should be implemented as a finite state machine.
 
@@ -389,7 +418,7 @@ This prevents invalid UI combinations and simplifies debugging.
 
 ---
 
-# 17. State Responsibilities
+# 19. State Responsibilities
 
 ## HOME
 
@@ -541,7 +570,7 @@ HOME
 
 ---
 
-# 18. State Transition Rules
+# 20. State Transition Rules
 
 Only the Game Engine may change application state.
 
@@ -555,7 +584,7 @@ However, all transitions must pass through the Game Engine.
 
 ---
 
-# 19. Event System
+# 21. Event System
 
 The engine should react to events.
 

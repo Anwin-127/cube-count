@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { GamePhase } from '../models/GamePhase';
+import { TimeService } from '../online/TimeService';
 
 /** Phases that run a live countdown timer. */
 const TIMED_PHASES: readonly GamePhase[] = [
+  GamePhase.ONLINE_COUNTDOWN,
   GamePhase.DISPLAYING_PUZZLE,
   GamePhase.ANSWER_PHASE,
 ];
@@ -15,6 +17,7 @@ const TIMED_PHASES: readonly GamePhase[] = [
  * Returns null when no timer is running (menus, results, etc.).
  *
  * Phases with timers:
+ *   - ONLINE_COUNTDOWN  → counts down to displayStartTime
  *   - DISPLAYING_PUZZLE → counts down from currentDisplayDuration
  *   - ANSWER_PHASE      → counts down from config.maximumAnswerTime
  */
@@ -44,10 +47,13 @@ export function useTimer(): number | null {
         return;
       }
 
-      const now = Date.now();
+      const now = TimeService.getServerTime();
       let next: number | null = null;
 
-      if (phase === GamePhase.DISPLAYING_PUZZLE && displayStartTime !== null) {
+      if (phase === GamePhase.ONLINE_COUNTDOWN && displayStartTime !== null) {
+        const elapsed = (displayStartTime - now) / 1000;
+        next = Math.max(0, elapsed);
+      } else if (phase === GamePhase.DISPLAYING_PUZZLE && displayStartTime !== null) {
         const elapsed = (now - displayStartTime) / 1000;
         next = Math.max(0, displayDuration - elapsed);
       } else if (phase === GamePhase.ANSWER_PHASE && answerStartTime !== null) {

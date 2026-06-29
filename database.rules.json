@@ -1,0 +1,81 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      ".indexOn": ["config/roomCode", "config/lastActivity"],
+      
+      // Allow querying specific room by code, OR querying abandoned rooms by lastActivity
+      ".read": "auth != null && ((query.orderByChild == 'config/roomCode' && query.equalTo != null) || query.orderByChild == 'config/lastActivity')",
+
+      "$roomId": {
+        // Only members of the room can read the room data directly
+        ".read": "auth != null && data.child('players').hasChild(auth.uid)",
+        
+        // Anyone can create a room, but they must set themselves as host
+        // Also allow room deletion if lastActivity is older than 1 hour (3600000 ms)
+        ".write": "auth != null && (!data.exists() && newData.child('config/hostUid').val() === auth.uid || !newData.exists() && (data.child('config/hostUid').val() === auth.uid || data.child('config/lastActivity').val() < now - 3600000))",
+
+        "config": {
+          // Only the host can update config generally (like starting the match)
+          ".write": "auth != null && data.parent().child('config/hostUid').val() === auth.uid",
+          
+          "lastActivity": {
+            // Any room member can update the last activity timestamp
+            ".write": "auth != null && data.parent().parent().child('players').hasChild(auth.uid)"
+          }
+        },
+        
+        "players": {
+          "$playerId": {
+            // A player can write their own node to join or update readiness
+            // Or host can remove players (if room is closed)
+            ".write": "auth != null && ($playerId === auth.uid || data.parent().parent().child('config/hostUid').val() === auth.uid)"
+          }
+        },
+
+        "presence": {
+          "$playerId": {
+            // A player can write their own presence
+            ".write": "auth != null && $playerId === auth.uid"
+          }
+        },
+
+        "matchState": {
+          // Only the host can write matchState broadly (seeds, timestamps)
+          ".write": "auth != null && data.parent().child('config/hostUid').val() === auth.uid",
+          
+          "clientsReady": {
+            "$playerId": {
+              // Any player can write their own readiness state
+              ".write": "auth != null && $playerId === auth.uid"
+            }
+          },
+
+          "continueReady": {
+            "$playerId": {
+              // Any player can write their own continue ready state
+              ".write": "auth != null && $playerId === auth.uid"
+            }
+          },
+          
+          "submissions": {
+            "$playerId": {
+              // But any player can write their own submission
+              ".write": "auth != null && $playerId === auth.uid"
+            }
+          },
+
+          "disconnectedPlayerUid": {
+            // Allow any player to write this (usually via onDisconnect)
+            ".write": "auth != null"
+          },
+
+          "disconnectTimestamp": {
+            ".write": "auth != null"
+          }
+        }
+      }
+    }
+  }
+}
