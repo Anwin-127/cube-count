@@ -29,7 +29,7 @@ import {
   DIFFICULTY_PROGRESSION_THRESHOLD,
 } from '../engine';
 import type { SessionHistory } from '../engine';
-import { DIFFICULTY_MAX_HEIGHTS } from '../config/constants';
+
 import * as AnswerManager from '../engine/AnswerManager';
 import { TimeService } from '../online/TimeService';
 
@@ -198,7 +198,7 @@ export const useGameStore = create<GameStore>()(
       // -- Game lifecycle ----------------------------------------------------
 
       startMatch: () => {
-        const { config, phase, sessionHistory } = get();
+        const { config, phase } = get();
         const newPhase = transition(phase, GamePhase.GENERATING_PUZZLE);
 
         const activeConfig = { ...config };
