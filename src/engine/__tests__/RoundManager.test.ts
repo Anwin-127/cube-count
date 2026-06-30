@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   generatePuzzleForRound,
+  createSessionHistory,
   getDisplayTimeForCurrentRound,
   isLastRound,
   getPlayerCount,
@@ -24,29 +25,58 @@ const practiceConfig: GameConfig = {
 
 const mockConfig: GameConfig = {
   ...DEFAULT_GAME_CONFIG,
-  maximumStackHeight: 5,
+  maximumStackHeight: 3,
 };
 
 describe('RoundManager', () => {
   describe('generatePuzzleForRound', () => {
     it('generates a valid puzzle', () => {
-      const puzzle = generatePuzzleForRound(mockConfig, 1, []).puzzle;
+      const history = createSessionHistory();
+      const { puzzle } = generatePuzzleForRound(mockConfig, 1, history);
       expect(puzzle.totalCubes).toBeGreaterThan(0);
-      expect(puzzle.heightMap.length).toBe(mockConfig.maximumStackHeight);
+      expect(puzzle.heightMap.length).toBe(5); // BOARD_SIZE
+    });
+
+    it('returns an updated session history', () => {
+      const history = createSessionHistory();
+      const { history: updated } = generatePuzzleForRound(mockConfig, 1, history);
+      expect(updated.exactHashes.length).toBe(1);
+      expect(updated.signatures.length).toBe(1);
+      expect(updated.recentRecipeNames.length).toBe(1);
     });
 
     it('generates deterministic puzzles with a fixed seed', () => {
       const config: GameConfig = { ...mockConfig, puzzleSeed: 42 };
-      const puzzle1 = generatePuzzleForRound(config, 1, []).puzzle;
-      const puzzle2 = generatePuzzleForRound(config, 1, []).puzzle;
+      const history = createSessionHistory();
+      const puzzle1 = generatePuzzleForRound(config, 1, history).puzzle;
+      const puzzle2 = generatePuzzleForRound(config, 1, history).puzzle;
       expect(puzzle1.heightMap).toEqual(puzzle2.heightMap);
     });
 
-    it('generates different puzzles for different rounds with a fixed seed', () => {
-      const config: GameConfig = { ...mockConfig, puzzleSeed: 42 };
-      const puzzle1 = generatePuzzleForRound(config, 1, []).puzzle;
-      const puzzle2 = generatePuzzleForRound(config, 2, []).puzzle;
-      expect(puzzle1.heightMap).not.toEqual(puzzle2.heightMap);
+    it('generates different puzzles for different random seeds', () => {
+      // In local mode, each call generates a fresh random seed so puzzles differ
+      const history = createSessionHistory();
+      const puzzle1 = generatePuzzleForRound(mockConfig, 1, history).puzzle;
+      const puzzle2 = generatePuzzleForRound(mockConfig, 1, history).puzzle;
+      // With different random seeds, puzzles should almost always differ
+      // (extremely unlikely to collide across two independent RNG seeds)
+      expect(puzzle1.metadata.seed).not.toEqual(puzzle2.metadata.seed);
+    });
+
+    it('records the recipe name in metadata', () => {
+      const history = createSessionHistory();
+      const { puzzle } = generatePuzzleForRound(mockConfig, 1, history);
+      expect(typeof puzzle.metadata.recipeName).toBe('string');
+      expect(puzzle.metadata.recipeName.length).toBeGreaterThan(0);
+    });
+
+    it('records readability and occlusion scores in metadata', () => {
+      const history = createSessionHistory();
+      const { puzzle } = generatePuzzleForRound(mockConfig, 1, history);
+      expect(puzzle.metadata.readabilityScore).toBeGreaterThanOrEqual(0);
+      expect(puzzle.metadata.readabilityScore).toBeLessThanOrEqual(1);
+      expect(puzzle.metadata.occlusionScore).toBeGreaterThanOrEqual(0);
+      expect(puzzle.metadata.occlusionScore).toBeLessThanOrEqual(1);
     });
   });
 

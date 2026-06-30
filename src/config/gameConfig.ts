@@ -16,6 +16,6 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   initialDisplayTime: 3.5,
   maximumAnswerTime: 10,
   difficulty: Difficulty.MEDIUM,
-  maximumStackHeight: 2,
+  maximumStackHeight: 4,
   enableEarlyProgression: true,
 };

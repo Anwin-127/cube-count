@@ -38,12 +38,16 @@ export {
 // Rounds
 export {
   generatePuzzleForRound,
+  createSessionHistory,
+  recordPuzzleInHistory,
+  hashPuzzle,
   getDisplayTimeForCurrentRound,
   isLastRound,
   getPlayerCount,
   getNextDifficultyLevel,
   DIFFICULTY_PROGRESSION_THRESHOLD,
 } from './RoundManager';
+export type { SessionHistory } from './RoundManager';
 
 // Statistics
 export {

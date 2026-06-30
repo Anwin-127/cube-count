@@ -19,8 +19,14 @@ export interface PuzzleMetadata {
   readonly difficulty: Difficulty;
   /** The shape family used to generate the puzzle footprint. */
   readonly shapeFamily: string;
+  /** The named recipe that produced this puzzle (e.g. "Corner Fortress"). */
+  readonly recipeName: string;
   /** Normalized complexity score in [0, 1]. Higher = harder. */
   readonly complexityScore: number;
+  /** Normalized isometric occlusion score in [0, 1]. Lower = more readable. */
+  readonly occlusionScore: number;
+  /** Normalized readability score in [0, 1]. Higher = clearer visual layout. */
+  readonly readabilityScore: number;
   /** Estimated number of cubes not directly visible from the isometric viewpoint. */
   readonly hiddenCubeEstimate: number;
   /** Number of generation attempts before a valid puzzle was produced. */

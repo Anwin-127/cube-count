@@ -1,5 +1,7 @@
 import type { HeightMap } from '../models/Puzzle';
 import { isConnected } from './connectivityChecker';
+import { analyzeOcclusion } from './occlusionAnalyzer';
+import { OCCLUSION_REJECTION_THRESHOLD } from '../config/constants';
 
 /**
  * Result of a puzzle validation check.
@@ -22,6 +24,8 @@ const MIN_ACTIVE_CELLS = 5;
  * 4. The puzzle contains at least MIN_ACTIVE_CELLS occupied cells.
  * 5. The puzzle contains at least one cube.
  * 6. All occupied cells form a single connected region.
+ * 7. Isometric occlusion score does not exceed OCCLUSION_REJECTION_THRESHOLD.
+ *    Puzzles with excessive occlusion are unreadable and frustrating.
  *
  * @param heightMap - The grid to validate.
  * @param expectedSize - Expected number of rows and columns.
@@ -96,6 +100,17 @@ export function validateHeightMap(
     const mask = heightMap.map((row) => row.map((h) => h > 0));
     if (!isConnected(mask)) {
       errors.push('All occupied cells must form a single connected region');
+    }
+  }
+
+  // Occlusion check: reject puzzles where too many stacks are hidden
+  if (errors.length === 0 && activeCells > 0) {
+    const occlusion = analyzeOcclusion(heightMap, expectedSize);
+    if (occlusion.score > OCCLUSION_REJECTION_THRESHOLD) {
+      errors.push(
+        `Occlusion score ${occlusion.score.toFixed(2)} exceeds threshold ${OCCLUSION_REJECTION_THRESHOLD}. ` +
+          `${occlusion.occludedStackCount} stacks are hidden — puzzle is unreadable.`,
+      );
     }
   }
 

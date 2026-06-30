@@ -13,6 +13,7 @@ import { DEFAULT_GAME_CONFIG } from '../config/gameConfig';
 import {
   transition,
   generatePuzzleForRound,
+  createSessionHistory,
   getDisplayTimeForCurrentRound,
   isLastRound,
   isTimerExpired,
@@ -27,7 +28,8 @@ import {
   getNextDifficultyLevel,
   DIFFICULTY_PROGRESSION_THRESHOLD,
 } from '../engine';
-// generateSeed is removed
+import type { SessionHistory } from '../engine';
+import { DIFFICULTY_MAX_HEIGHTS } from '../config/constants';
 import * as AnswerManager from '../engine/AnswerManager';
 import { TimeService } from '../online/TimeService';
 
@@ -70,8 +72,8 @@ export interface GameState {
    * Null when no progression happened in the latest round.
    */
   difficultyJustAdvanced: boolean;
-  /** History of recently generated puzzle hashes. */
-  puzzleHashHistory: string[];
+  /** Session deduplication history (exact hashes, signatures, recipe names). */
+  sessionHistory: SessionHistory;
   /** The player's display name for online play. */
   displayName: string | null;
   /** The player's Firebase UID. */
@@ -163,7 +165,7 @@ function createInitialState(): GameState {
     validatingStartTime: null,
     currentDisplayDuration: DEFAULT_GAME_CONFIG.initialDisplayTime,
     difficultyJustAdvanced: false,
-    puzzleHashHistory: [],
+    sessionHistory: createSessionHistory(),
     displayName: null,
     playerUid: null,
     activeRoomId: null,
@@ -196,7 +198,7 @@ export const useGameStore = create<GameStore>()(
       // -- Game lifecycle ----------------------------------------------------
 
       startMatch: () => {
-        const { config, phase, puzzleHashHistory } = get();
+        const { config, phase, sessionHistory } = get();
         const newPhase = transition(phase, GamePhase.GENERATING_PUZZLE);
 
         const activeConfig = { ...config };
@@ -223,17 +225,17 @@ export const useGameStore = create<GameStore>()(
           ? createPracticeStats()
           : null;
 
-        // Generate puzzle for round 1
-        const { puzzle, seedUsed, hash } = generatePuzzleForRound(activeConfig, 1, puzzleHashHistory);
+        // Generate puzzle for round 1, using fresh session history
+        const freshHistory = createSessionHistory();
+        const { puzzle, history: newHistory } = generatePuzzleForRound(activeConfig, 1, freshHistory);
         const displayDuration = getDisplayTimeForCurrentRound(activeConfig, 1);
-        
-        const newHistory = [...puzzleHashHistory, hash].slice(-50);
-        
+        const seed = puzzle.metadata.seed;
+
         if (matchStatistics) {
-          matchStatistics.seedsUsed = [seedUsed];
+          matchStatistics.seedsUsed = [seed];
         }
         if (practiceStatistics) {
-          practiceStatistics.seedsUsed = [seedUsed];
+          practiceStatistics.seedsUsed = [seed];
         }
 
         set(
@@ -251,7 +253,7 @@ export const useGameStore = create<GameStore>()(
             validatingStartTime: null,
             currentDisplayDuration: displayDuration,
             difficultyJustAdvanced: false,
-            puzzleHashHistory: newHistory,
+            sessionHistory: newHistory,
           },
           false,
           'startMatch',
@@ -330,6 +332,28 @@ export const useGameStore = create<GameStore>()(
           const allSubmitted = allPlayersSubmitted(state.players);
 
           if (timerExpired || allSubmitted) {
+            // Auto-broadcast the local player's answer on timeout in online mode.
+            // This ensures the remote client knows what the player's counter was at 
+            // when time ran out, avoiding a state mismatch during evaluation.
+            if (timerExpired && state.config.gameMode === GameMode.ONLINE_MULTIPLAYER && state.activeRoomId && state.playerUid) {
+               const localPlayerId = state.playerUid === state.onlineHostUid ? 'player1' : 
+                                     state.playerUid === state.onlineGuestUid ? 'player2' : null;
+               if (localPlayerId) {
+                 const localPlayer = state.players.find(p => p.id === localPlayerId);
+                 if (localPlayer && !localPlayer.hasSubmitted) {
+                    import('../online/OnlineGameplayService').then(m => {
+                      m.OnlineGameplayService.submitAnswer(
+                        state.activeRoomId!, 
+                        state.playerUid!, 
+                        localPlayer.currentAnswer, 
+                        state.config.maximumAnswerTime, 
+                        state.currentRound
+                      );
+                    });
+                 }
+               }
+            }
+
             set(
               {
                 phase: transition(
@@ -480,25 +504,24 @@ export const useGameStore = create<GameStore>()(
         }
 
         // --- Local Gameplay Logic ---
-        const { puzzle, seedUsed, hash } = generatePuzzleForRound(
+        const { puzzle, history: newHistory } = generatePuzzleForRound(
           state.config,
           nextRound,
-          state.puzzleHashHistory,
+          state.sessionHistory,
         );
         const displayDuration = getDisplayTimeForCurrentRound(
           state.config,
           nextRound,
         );
-        
-        const newHistory = [...state.puzzleHashHistory, hash].slice(-50);
-        
+        const seed = puzzle.metadata.seed;
+
         let matchStatistics = state.matchStatistics;
         if (matchStatistics) {
-           matchStatistics = { ...matchStatistics, seedsUsed: [...matchStatistics.seedsUsed, seedUsed] };
+           matchStatistics = { ...matchStatistics, seedsUsed: [...matchStatistics.seedsUsed, seed] };
         }
         let practiceStatistics = state.practiceStatistics;
         if (practiceStatistics) {
-           practiceStatistics = { ...practiceStatistics, seedsUsed: [...practiceStatistics.seedsUsed, seedUsed] };
+           practiceStatistics = { ...practiceStatistics, seedsUsed: [...practiceStatistics.seedsUsed, seed] };
         }
 
         const resetPlayers = state.players.map((p) =>
@@ -519,7 +542,7 @@ export const useGameStore = create<GameStore>()(
             validatingStartTime: null,
             currentDisplayDuration: displayDuration,
             difficultyJustAdvanced: false,
-            puzzleHashHistory: newHistory,
+            sessionHistory: newHistory,
             matchStatistics,
             practiceStatistics,
           },
@@ -631,13 +654,11 @@ export const useGameStore = create<GameStore>()(
         if (p1Name) resetPlayers[0].displayName = p1Name;
         if (p2Name) resetPlayers[1].displayName = p2Name;
 
-        const { puzzle, hash } = generatePuzzleForRound(
+        const { puzzle, history: newHistory } = generatePuzzleForRound(
           { ...config, puzzleSeed: seed },
           roundNumber,
-          state.puzzleHashHistory,
+          state.sessionHistory,
         );
-
-        const newHistory = [...state.puzzleHashHistory, hash].slice(-50);
         
         // Calculate display duration from the synced deadline and start time, 
         // or just use the config default if not provided yet.
@@ -666,13 +687,13 @@ export const useGameStore = create<GameStore>()(
             currentRound: roundNumber,
             currentPuzzle: puzzle,
             players: resetPlayers,
+            matchStatistics,
             displayStartTime: displayStart,
-            answerStartTime: displayStart ? displayStart + (displayDuration * 1000) : null,
+            answerStartTime: null,
             validatingStartTime: null,
             currentDisplayDuration: displayDuration,
             difficultyJustAdvanced: false,
-            puzzleHashHistory: newHistory,
-            matchStatistics,
+            sessionHistory: newHistory,
           },
           false,
           'startOnlineRound',

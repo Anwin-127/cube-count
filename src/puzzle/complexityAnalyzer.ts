@@ -10,7 +10,12 @@ export interface ComplexityFactors {
   readonly heightVariationFactor: number;
   /** Proportion of board cells occupied. */
   readonly densityFactor: number;
-  /** Ratio of hidden cubes to total cubes. */
+  /**
+   * Ratio of hidden cubes to total cubes.
+   *
+   * Weight deliberately kept low (0.15) under the new philosophy:
+   * difficulty should come from counting skill, not visual obstruction.
+   */
   readonly hiddenRatioFactor: number;
 }
 
@@ -28,14 +33,23 @@ export interface ComplexityAnalysis {
 /**
  * Weights for each complexity factor.
  *
- * Sum = 1.0. Tuned to prioritize factors that most
- * influence human counting difficulty.
+ * Redesigned under the new gameplay-quality philosophy:
+ *
+ *  heightVariation (0.35) — Primary driver of interesting, memorable puzzles.
+ *                           Varied stacks force careful counting.
+ *  cubeCount       (0.25) — More cubes mean more counting work.
+ *  density         (0.25) — Denser layouts are harder to parse at speed.
+ *  hiddenRatio     (0.15) — Reduced from 0.35: hidden cubes are no longer
+ *                           the primary complexity objective. Fairness and
+ *                           readability take priority.
+ *
+ * Sum = 1.0.
  */
 const WEIGHTS = {
-  cubeCount: 0.20,
-  heightVariation: 0.30,
-  density: 0.15,
-  hiddenRatio: 0.35,
+  heightVariation: 0.35,
+  cubeCount: 0.25,
+  density: 0.25,
+  hiddenRatio: 0.15,
 } as const;
 
 /**
@@ -43,7 +57,7 @@ const WEIGHTS = {
  *
  * Returns a normalized score in [0, 1] where:
  *   0 = trivially simple (few cubes, flat, sparse)
- *   1 = maximally complex (many cubes, varied heights, dense, many hidden)
+ *   1 = maximally complex (many cubes, varied heights, dense)
  *
  * @param heightMap - The puzzle grid.
  * @param boardSize - Grid dimensions.
@@ -58,7 +72,6 @@ export function analyzeComplexity(
   const totalCells = boardSize * boardSize;
   const maxPossibleCubes = totalCells * maxHeight;
 
-  // Gather raw data
   let totalCubes = 0;
   let activeCells = 0;
   const heights: number[] = [];
@@ -98,8 +111,8 @@ export function analyzeComplexity(
 
   // Weighted composite score
   const score =
-    factors.cubeCountFactor * WEIGHTS.cubeCount +
     factors.heightVariationFactor * WEIGHTS.heightVariation +
+    factors.cubeCountFactor * WEIGHTS.cubeCount +
     factors.densityFactor * WEIGHTS.density +
     factors.hiddenRatioFactor * WEIGHTS.hiddenRatio;
 
@@ -138,13 +151,8 @@ function calculateHeightVariation(
 /**
  * Estimates the number of cubes hidden from the standard isometric viewpoint.
  *
- * A cube is considered "hidden" if it is below the top of its stack.
- * These cubes are not directly visible from above and must be mentally
- * inferred by the player, making them the primary source of counting difficulty.
- *
- * This is a conservative estimate — some hidden-from-above cubes may
- * still be visible from the side. The exact count depends on the
- * isometric viewing angle, which is determined in the renderer.
+ * Conservative estimate: any cube below the top of its stack is "hidden"
+ * from directly above, requiring mental inference by the player.
  */
 function estimateHiddenCubes(heightMap: HeightMap): number {
   let hidden = 0;
