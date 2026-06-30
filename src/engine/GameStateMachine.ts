@@ -39,7 +39,12 @@ const VALID_TRANSITIONS: Record<GamePhase, readonly GamePhase[]> = {
     GamePhase.DISPLAYING_PUZZLE,
     GamePhase.FINAL_RESULTS,
   ],
-  [GamePhase.FINAL_RESULTS]: [GamePhase.HOME, GamePhase.SETTINGS],
+  [GamePhase.FINAL_RESULTS]: [
+    GamePhase.HOME,
+    GamePhase.SETTINGS,
+    GamePhase.GENERATING_PUZZLE,
+    GamePhase.WAITING_ROOM
+  ],
 };
 
 /**

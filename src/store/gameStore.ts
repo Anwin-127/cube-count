@@ -544,7 +544,12 @@ export const useGameStore = create<GameStore>()(
         }
         
         set({ config: newConfig }, false, 'continueFromFinalResults:setConfig');
-        get().startMatch();
+        
+        if (state.config.gameMode === GameMode.ONLINE_MULTIPLAYER) {
+          get().goToWaitingRoom();
+        } else {
+          get().startMatch();
+        }
       },
 
       resetToHome: () =>

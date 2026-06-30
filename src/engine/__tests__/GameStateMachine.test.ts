@@ -90,7 +90,7 @@ describe('GameStateMachine', () => {
 
   describe('getValidTransitions', () => {
     it('returns all valid targets for HOME', () => {
-      expect(getValidTransitions(GamePhase.HOME)).toEqual([GamePhase.SETTINGS]);
+      expect(getValidTransitions(GamePhase.HOME)).toEqual([GamePhase.SETTINGS, GamePhase.ONLINE_MENU]);
     });
 
     it('returns multiple targets for ROUND_RESULTS', () => {
@@ -103,6 +103,8 @@ describe('GameStateMachine', () => {
       const targets = getValidTransitions(GamePhase.FINAL_RESULTS);
       expect(targets).toContain(GamePhase.HOME);
       expect(targets).toContain(GamePhase.SETTINGS);
+      expect(targets).toContain(GamePhase.GENERATING_PUZZLE);
+      expect(targets).toContain(GamePhase.WAITING_ROOM);
     });
   });
 
